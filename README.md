@@ -76,7 +76,8 @@ These tests verify the interactions *between* different components.
 
 ## Demo Video
 
-A demonstration video (`demo_vid.mov`) is included in the root of the repository.
+A demonstration video is included in the root of the repository:
+[Watch the Demo Video (demo_vid.mov)](./demo_vid.mov)
 
 <!-- Optional: Consider uploading the video somewhere and linking it here. -->
 <!-- e.g., [Watch the Demo Video](link-to-video) -->
