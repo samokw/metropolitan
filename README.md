@@ -77,7 +77,7 @@ These tests verify the interactions *between* different components.
 ## Demo Video
 
 A demonstration video is included in the root of the repository:
-[Watch the Demo Video (demo.mp4)](./demo.mp4)
+[Watch the Demo GIF (demo.gif)](./demo.gif)
 
 <!-- Optional: Consider uploading the video somewhere and linking it here. -->
 <!-- e.g., [Watch the Demo Video](link-to-video) -->
