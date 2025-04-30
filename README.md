@@ -75,8 +75,6 @@ These tests verify the interactions *between* different components.
 | 4    | `./ingester.sh`           | (Executed by `integration.sh`) Tests ingester's DB connection & insertion. | Verifies that the ingester successfully connects to the database and adds data.      |
 
 ## Demo Video
-
-A demonstration video is included in the root of the repository:
 ![Demo GIF](./demo.gif)
 
 <!-- Optional: Consider uploading the video somewhere and linking it here. -->
