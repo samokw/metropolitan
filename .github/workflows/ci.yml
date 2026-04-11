@@ -52,6 +52,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc python3-dev libmariadb-dev libmariadb-dev-compat
       - name: Install dependencies
         working-directory: ingester
         run: pip install -r requirements.txt
@@ -103,6 +105,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y gcc python3-dev libmariadb-dev libmariadb-dev-compat
       - name: Install dependencies
         working-directory: ingester
         run: pip install -r requirements.txt
