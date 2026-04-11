@@ -51,13 +51,12 @@ services:  # Defines the services that make up the application
   ingester:   # The Python ingester service
     build: ./ingester  # Builds the Docker image from the Dockerfile in the './ingester' directory
     environment:  # Environment variables for the Python service
-      - DB_HOST=database  # Hostname for the MySQL database, 'mysql' is the service name in docker-compose
-      - DB_DATABASE=template_db  # The name of the database to use
-      - DB_USER=root  # The username for the database
-      - DB_PASSWORD=pwd  # The password for the database
-      - API_KEY=d72Mk_r-2uMm2BI88temUsgSCWNnhZ-6rlNY8Nnn_YytRFRcIf69Rg
-      - API_URL_HOUSING=https://cis-data-service.socs.uoguelph.ca/data/housing_starts_completions
-      - API_URL_LABOUR_MARKET=https://cis-data-service.socs.uoguelph.ca/data/labour_market
+      - DB_HOST=database
+      - DB_DATABASE=template_db
+      - DB_USER=root
+      - DB_PASSWORD=pwd
+      - STATCAN_HOUSING_URL=https://www150.statcan.gc.ca/n1/tbl/csv/34100154-eng.zip
+      - STATCAN_LABOUR_URL=https://www150.statcan.gc.ca/n1/tbl/csv/14100017-eng.zip
     depends_on:
       - database  # Ensures MySQL service is started before the Python service
     networks:
@@ -83,6 +82,7 @@ services:  # Defines the services that make up the application
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - DB_PASSWORD=pwd
     volumes:
       - grafana_data:/var/lib/grafana
       - ./observability/grafana/provisioning:/etc/grafana/provisioning

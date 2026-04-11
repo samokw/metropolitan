@@ -48,6 +48,37 @@ class DatabaseHandler:
         """
         self.create_housing_data_table()
         self.create_labour_market_data_table()
+        self.create_pipeline_runs_table()
+
+    def create_pipeline_runs_table(self):
+        """
+        create_pipeline_runs_table: Creates the pipeline_runs table if it doesn't exist.
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS pipeline_runs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    source VARCHAR(50) NOT NULL COMMENT 'Pipeline source',
+                    records_extracted INT DEFAULT 0,
+                    records_transformed INT DEFAULT 0,
+                    records_loaded INT DEFAULT 0,
+                    records_rejected INT DEFAULT 0,
+                    bytes_downloaded INT DEFAULT 0,
+                    estimated_bytes_loaded INT DEFAULT 0,
+                    success_rate_pct DECIMAL(5,2) DEFAULT 0,
+                    duration_seconds DECIMAL(8,2) DEFAULT 0,
+                    error_count INT DEFAULT 0,
+                    run_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            self.conn.commit()
+        except mariadb.Error as e:
+            print(f"Error creating pipeline_runs table: {e}")
+        finally:
+            cursor.close()
 
     def create_housing_data_table(self):
         """

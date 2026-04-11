@@ -1,0 +1,335 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "Records Loaded per Run",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS time, records_loaded AS 'Loaded', records_rejected AS 'Rejected', source FROM pipeline_runs ORDER BY run_at",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 80,
+            "stacking": { "mode": "normal" }
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Rejected" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Loaded" },
+            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
+          }
+        ]
+      }
+    },
+    {
+      "title": "Data Volume Downloaded",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS time, bytes_downloaded AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT run_at AS time, bytes_downloaded AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "custom": {
+            "fillOpacity": 10,
+            "pointSize": 6,
+            "drawStyle": "line",
+            "showPoints": "always"
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Success Rate Trend",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS time, success_rate_pct AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT run_at AS time, success_rate_pct AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 90 },
+              { "color": "green", "value": 99 }
+            ]
+          },
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6,
+            "thresholdsStyle": { "mode": "line" }
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Pipeline Duration",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS time, duration_seconds AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT run_at AS time, duration_seconds AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Errors per Run",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS time, error_count AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT run_at AS time, error_count AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "fillOpacity": 15,
+            "drawStyle": "bars",
+            "barAlignment": 0
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Data Loaded (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS time, estimated_bytes_loaded AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "A"
+        },
+        {
+          "rawSql": "SELECT run_at AS time, estimated_bytes_loaded AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
+          "format": "time_series",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "custom": {
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 6
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Latest Pipeline Runs",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT run_at AS 'Time', source AS 'Source', records_extracted AS 'Extracted', records_transformed AS 'Transformed', records_loaded AS 'Loaded', records_rejected AS 'Rejected', CONCAT(ROUND(bytes_downloaded / 1048576, 2), ' MB') AS 'Downloaded', CONCAT(ROUND(estimated_bytes_loaded / 1048576, 2), ' MB') AS 'Written', CONCAT(success_rate_pct, '%') AS 'Success Rate', CONCAT(duration_seconds, 's') AS 'Duration', error_count AS 'Errors' FROM pipeline_runs ORDER BY run_at DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "title": "Total Records Loaded (All Time)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 32 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT SUM(records_loaded) AS total FROM pipeline_runs",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "blue", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Total Data Downloaded",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 32 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT SUM(bytes_downloaded) AS total FROM pipeline_runs",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "purple", "value": null }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Avg Success Rate",
+      "type": "gauge",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 32 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT AVG(success_rate_pct) AS avg_rate FROM pipeline_runs",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "yellow", "value": 90 },
+              { "color": "green", "value": 99 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    },
+    {
+      "title": "Total Errors",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 32 },
+      "datasource": "MariaDB",
+      "targets": [
+        {
+          "rawSql": "SELECT SUM(error_count) AS total FROM pipeline_runs",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["metropolitan", "ingester", "pipeline"],
+  "templating": { "list": [] },
+  "time": { "from": "now-30d", "to": "now" },
+  "title": "Ingester Pipeline",
+  "uid": "metropolitan-ingester",
+  "version": 1
+}

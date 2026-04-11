@@ -30,3 +30,18 @@ CREATE TABLE IF NOT EXISTS labour_market_data (
     education_level INT DEFAULT 0 COMMENT 'Education Level',
     labour_force_status INT DEFAULT 0 COMMENT 'Labour Force Status'
 );
+
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    source VARCHAR(50) NOT NULL COMMENT 'Pipeline source (housing, labour)',
+    records_extracted INT DEFAULT 0,
+    records_transformed INT DEFAULT 0,
+    records_loaded INT DEFAULT 0,
+    records_rejected INT DEFAULT 0,
+    bytes_downloaded INT DEFAULT 0,
+    estimated_bytes_loaded INT DEFAULT 0,
+    success_rate_pct DECIMAL(5,2) DEFAULT 0,
+    duration_seconds DECIMAL(8,2) DEFAULT 0,
+    error_count INT DEFAULT 0,
+    run_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
