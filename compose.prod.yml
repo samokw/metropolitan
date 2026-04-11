@@ -1,0 +1,100 @@
+services:
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./observability/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+    depends_on:
+      - backend
+      - frontend
+      - grafana
+    networks:
+      - backend-database
+      - backend-frontend
+
+  database:
+    image: ghcr.io/${GITHUB_USER}/metropolitan-database:latest
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - TZ=America/Toronto
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - backend-database
+
+  backend:
+    image: ghcr.io/${GITHUB_USER}/metropolitan-backend:latest
+    environment:
+      - DB_ADDRESS=jdbc:mysql://database:3306
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    depends_on:
+      - database
+    networks:
+      - backend-database
+      - backend-frontend
+
+  frontend:
+    image: ghcr.io/${GITHUB_USER}/metropolitan-frontend:latest
+    networks:
+      - backend-frontend
+
+  ingester:
+    image: ghcr.io/${GITHUB_USER}/metropolitan-ingester:latest
+    environment:
+      - DB_HOST=database
+      - DB_DATABASE=${DB_DATABASE}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - STATCAN_HOUSING_URL=${STATCAN_HOUSING_URL}
+      - STATCAN_LABOUR_URL=${STATCAN_LABOUR_URL}
+    depends_on:
+      - database
+    networks:
+      - backend-database
+
+  prometheus:
+    image: prom/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=31d'
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - backend-database
+
+  grafana:
+    image: grafana/grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_SERVER_ROOT_URL=%(protocol)s://%(domain)s/grafana/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - backend-database
+
+volumes:
+  mariadb_data:
+  grafana_data:
+  prometheus_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  backend-database:
+  backend-frontend:
