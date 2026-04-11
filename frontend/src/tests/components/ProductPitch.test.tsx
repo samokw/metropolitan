@@ -9,19 +9,19 @@ describe('ProductPitch Component', () => {
       render(<ProductPitch darkMode={false} />);
     });
 
-    it('renders with light mode styles', () => {
+    it('renders with light panel class', () => {
       const section = screen.getByTestId('product-pitch-section');
-      expect(section).toHaveClass('bg-[#d3f3f8]');
+      expect(section).toHaveClass('product-pitch-panel--light');
     });
 
-    it('renders the "About Us" heading with light mode color', () => {
+    it('renders the "About Us" heading with light theme text class', () => {
       const heading = screen.getByRole('heading', { name: /About Us/i });
-      expect(heading).toHaveStyle({ color: 'rgb(211, 243, 248)' });
+      expect(heading).toHaveClass('text-[var(--color-primary-dark)]');
     });
 
-    it('renders the description with light mode color', () => {
+    it('renders the description with secondary text class', () => {
       const description = screen.getByText(/What if you could easily track/i);
-      expect(description).toHaveClass('text-[#2b9bda]');
+      expect(description).toHaveClass('text-[var(--color-text-secondary)]');
     });
   });
 
@@ -30,19 +30,20 @@ describe('ProductPitch Component', () => {
       render(<ProductPitch darkMode={true} />);
     });
 
-    it('renders with dark mode styles', () => {
+    it('renders with dark panel class', () => {
       const section = screen.getByTestId('product-pitch-section');
-      expect(section).not.toHaveClass('bg-[#d3f3f8]');
+      expect(section).toHaveClass('product-pitch-panel--dark');
+      expect(section).not.toHaveClass('product-pitch-panel--light');
     });
 
-    it('renders the "About Us" heading with dark mode color', () => {
+    it('renders the "About Us" heading with dark theme text class', () => {
       const heading = screen.getByRole('heading', { name: /About Us/i });
-      expect(heading).toHaveStyle({ color: 'rgb(255, 255, 255)' });
+      expect(heading).toHaveClass('text-[var(--color-text-primary)]');
     });
 
-    it('renders the description with dark mode color', () => {
+    it('renders the description with secondary text class', () => {
       const description = screen.getByText(/What if you could easily track/i);
-      expect(description).toHaveClass('text-white');
+      expect(description).toHaveClass('text-[var(--color-text-secondary)]');
     });
   });
 });

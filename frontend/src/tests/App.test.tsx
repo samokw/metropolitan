@@ -3,12 +3,31 @@ import { describe, test, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import App from '../App';
 
-// Mock react-router-dom completely
+// Mock react-router-dom (App uses NavLink + Link + BrowserRouter as Router)
 vi.mock('react-router-dom', () => ({
   BrowserRouter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Routes: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Route: ({ element }: { element: React.ReactNode }) => <div>{element}</div>,
-  Link: ({ children }: { children: React.ReactNode }) => <a href="#">{children}</a>
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
+  NavLink: ({
+    children,
+    to,
+    className,
+  }: {
+    children: React.ReactNode;
+    to: string;
+    className?: string | ((arg: { isActive: boolean }) => string);
+  }) => {
+    const cls =
+      typeof className === 'function' ? className({ isActive: false }) : (className ?? '');
+    return (
+      <a href={to} className={cls}>
+        {children}
+      </a>
+    );
+  },
 }));
 
 // Mock components used in App.tsx to avoid loading dependencies
