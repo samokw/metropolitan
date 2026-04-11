@@ -7,3 +7,17 @@ datasources:
     url: http://prometheus:9090
     isDefault: true
     editable: true
+
+  - name: MariaDB
+    type: mysql
+    access: proxy
+    url: database:3306
+    database: template_db
+    user: root
+    jsonData:
+      maxOpenConns: 2
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    secureJsonData:
+      password: ${DB_PASSWORD}
+    editable: true
