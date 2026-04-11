@@ -63,9 +63,40 @@ services:  # Defines the services that make up the application
     networks:
       - backend-database  # Connects to the same network as backend/database
 
-volumes:
-  mariadb_data:  # Defines a named volume 'mariadb_data' for the MySQL service to use for data persistence
+  prometheus:
+    image: prom/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=31d'
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - backend-database
 
-networks:  # Defines the networks used by the services
-  backend-database:  # Network used by the backend and database services
-  backend-frontend:  # Network used by the backend and frontend services
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - backend-database
+
+volumes:
+  mariadb_data:
+  grafana_data:
+  prometheus_data:
+
+networks:
+  backend-database:
+  backend-frontend:
