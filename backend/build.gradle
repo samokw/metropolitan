@@ -4,7 +4,6 @@ plugins {
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'jacoco'
     id 'checkstyle'
-    id "org.sonarqube" version "5.1.0.4882"
 }
 
 group = 'com.metropolitan'
@@ -79,12 +78,3 @@ jacocoTestReport {
     }
 }
 
-sonar {
-    properties {
-        property "sonar.projectName", "joblen_backend"
-        property "sonar.projectKey", "joblen_backend"
-        property "sonar.qualitygate.wait", true 
-        property "sonar.sources", "src/main/java"
-        property "sonar.java.binaries", "build/classes/java/main"
-    }
-}
