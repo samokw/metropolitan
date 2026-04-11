@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Line } from 'react-chartjs-2';
+import { CHART_FONT_FAMILY, chartGridColor, chartTextColor, chartTitleColor } from '../chartTheme';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,32 +24,22 @@ ChartJS.register(
   Filler
 );
 
-// Interface for labor force data
-interface LaborForceData {
-  
-  period: string;
-  employmentRate: number;
-  unemploymentRate: number;
-  participationRate: number;
-}
-
-// Interface for housing data
-interface HousingStartsData {
-  period: string;
+interface HousingByYear {
+  year: number;
   totalStarts: number;
   singleStarts: number;
   multiUnitStarts: number;
 }
 
-// Correlation data combining both datasets
-interface CorrelationData {
-  laborForceData: LaborForceData[];
-  housingStartsData: HousingStartsData[];
-  timePeriodsLabels: string[];
+interface LabourRates {
+  employmentRate: number;
+  unemploymentRate: number;
+  participationRate: number;
 }
 
 interface LabourForceStatsState {
-  correlationData: CorrelationData;
+  housingByYear: HousingByYear[];
+  labourRates: LabourRates;
   loading: boolean;
   error: string | null;
   chartKey: number;
@@ -59,22 +50,18 @@ interface LabourForceStatsState {
 
 interface LabourForceStatsProps {
   darkMode: boolean;
-  // Any props can be added here if needed
 }
 
 class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStatsState> {
   public state: LabourForceStatsState = {
-    correlationData: {
-      laborForceData: [],
-      housingStartsData: [],
-      timePeriodsLabels: []
-    },
+    housingByYear: [],
+    labourRates: { employmentRate: 0, unemploymentRate: 0, participationRate: 0 },
     loading: true,
     error: null,
     chartKey: Date.now(),
     selectedMetric: 'employment',
     selectedHousingType: 'total',
-    description: "This chart visualizes the correlation between labor force statistics and housing starts in Toronto. It helps city planners understand whether changes in the labor market align with new housing developments. A strong positive correlation may indicate that housing construction responds to labor market demands, while a negative correlation or lack of alignment may suggest potential planning challenges or opportunities for improvement."
+    description: "Housing starts for Toronto are from Statistics Canada (table 34-10-0154). Labour force rates (Ontario aggregate) are computed from the LFS Public Use Microdata File. The labour rate is a cross-sectional aggregate shown as a reference line."
   };
 
   public componentDidMount(): void {
@@ -90,19 +77,25 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
 
   private readonly fetchData = async (): Promise<void> => {
     try {
-      // For now, we'll use simulated data
-      // In a real application, these would be separate API calls
-      // const laborForceResponse = await fetch('/api/laborForceStats/toronto');
-      // const housingStartsResponse = await fetch('/api/housingStats/toronto');
+      const [housingRes, labourRes] = await Promise.all([
+        fetch('/api/housingStats'),
+        fetch('/api/labourMarket')
+      ]);
 
-      // Simulate loading time
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!housingRes.ok) throw new Error(`Housing API: HTTP ${housingRes.status}`);
+      if (!labourRes.ok) throw new Error(`Labour API: HTTP ${labourRes.status}`);
 
-      const simulatedData = this.getSimulatedData();
-      
+      const housingData = await housingRes.json();
+      const labourData = await labourRes.json();
+
+      const housingByYear = this.aggregateHousingByYear(housingData);
+      const labourRates = this.computeOntarioRates(labourData);
+
       this.setState({
-        correlationData: simulatedData,
+        housingByYear,
+        labourRates,
         loading: false,
+        error: null,
         chartKey: Date.now()
       });
     } catch (err) {
@@ -114,160 +107,112 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
     }
   };
 
-  private getSimulatedData(): CorrelationData {
-    // Generate 5 years of annual data
-    const years = 5;
-    const laborForceData: LaborForceData[] = [];
-    const housingStartsData: HousingStartsData[] = [];
-    const timePeriodsLabels: string[] = [];
-
-    // Starting values
-    let employmentRate = 65 + Math.random() * 5; // 65-70%
-    let unemploymentRate = 5 + Math.random() * 3; // 5-8%
-    let participationRate = 75 + Math.random() * 5; // 75-80%
-    
-    let totalStarts = 4000 + Math.random() * 1000; // 4000-5000
-    let singleStarts = 1000 + Math.random() * 500; // 1000-1500
-    let multiUnitStarts = 3000 + Math.random() * 500; // 3000-3500
-
-    // Year tracker
-    let currentYear = 2019;
-
-    // Create simulated annual data with correlation between employment and housing starts
-    for (let i = 0; i < years; i++) {
-      // Create year label
-      const periodLabel = `${currentYear}`;
-      timePeriodsLabels.push(periodLabel);
-      
-      // Add some random variation to employment rate
-      const employmentChange = (Math.random() * 2 - 1) * 2; // -2 to +2
-      employmentRate += employmentChange;
-      employmentRate = Math.min(Math.max(employmentRate, 60), 75); // Keep between 60-75%
-      
-      // Unemployment generally moves opposite to employment
-      unemploymentRate -= employmentChange * 0.7;
-      unemploymentRate = Math.min(Math.max(unemploymentRate, 3), 10); // Keep between 3-10%
-      
-      // Participation rate changes less drastically
-      participationRate += (Math.random() * 1.5 - 0.75); // -0.75 to +0.75
-      participationRate = Math.min(Math.max(participationRate, 73), 82); // Keep between 73-82%
-      
-      // Create housing starts with some correlation to employment rate
-      // Higher employment → more housing starts with some delay and noise
-      const employmentEffect = (employmentRate - 65) * 100; // Base effect of employment on housing
-      const randomNoise = (Math.random() * 2 - 1) * 1200; // Random variation
-      
-      totalStarts = 16000 + employmentEffect + randomNoise;
-      totalStarts = Math.max(totalStarts, 12000); // Minimum starts for annual data
-      
-      singleStarts = totalStarts * (0.2 + Math.random() * 0.1); // 20-30% of total
-      multiUnitStarts = totalStarts - singleStarts;
-      
-      // Push data to arrays
-      laborForceData.push({
-        period: periodLabel,
-        employmentRate,
-        unemploymentRate,
-        participationRate
-      });
-      
-      housingStartsData.push({
-        period: periodLabel,
-        totalStarts,
-        singleStarts,
-        multiUnitStarts
-      });
-      
-      // Increment year
-      currentYear++;
+  private aggregateHousingByYear(data: any[]): HousingByYear[] {
+    const byYear: Record<number, HousingByYear> = {};
+    for (const item of data) {
+      if (item.censusArea !== 'Toronto' || !item.year) continue;
+      if (!byYear[item.year]) {
+        byYear[item.year] = { year: item.year, totalStarts: 0, singleStarts: 0, multiUnitStarts: 0 };
+      }
+      byYear[item.year].totalStarts += item.totalStarts || 0;
+      byYear[item.year].singleStarts += item.singleStarts || 0;
+      const multi = (item.semisStarts || 0) + (item.rowStarts || 0) + (item.apartmentStarts || 0);
+      byYear[item.year].multiUnitStarts += multi;
     }
-    
+    return Object.values(byYear).sort((a, b) => a.year - b.year);
+  }
+
+  private computeOntarioRates(records: any[]): LabourRates {
+    let employed = 0;
+    let unemployed = 0;
+    let notInLF = 0;
+
+    for (const r of records) {
+      if (r.province !== 35) continue;
+      if (r.labourForceStatus === 1) employed++;
+      else if (r.labourForceStatus === 2) unemployed++;
+      else if (r.labourForceStatus === 3) notInLF++;
+    }
+
+    const labourForce = employed + unemployed;
+    const total = employed + unemployed + notInLF;
+
     return {
-      laborForceData,
-      housingStartsData,
-      timePeriodsLabels
+      employmentRate: labourForce > 0 ? (employed / labourForce) * 100 : 0,
+      unemploymentRate: labourForce > 0 ? (unemployed / labourForce) * 100 : 0,
+      participationRate: total > 0 ? (labourForce / total) * 100 : 0,
     };
   }
 
   private readonly handleMetricChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    this.setState({ 
+    this.setState({
       selectedMetric: event.target.value as 'employment' | 'unemployment' | 'participation',
-      chartKey: Date.now() 
+      chartKey: Date.now()
     });
   };
 
   private readonly handleHousingTypeChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    this.setState({ 
+    this.setState({
       selectedHousingType: event.target.value as 'total' | 'single' | 'multiUnit',
-      chartKey: Date.now() 
+      chartKey: Date.now()
     });
   };
 
   private readonly getChartData = (): any => {
-    const { correlationData, selectedMetric, selectedHousingType } = this.state;
-    const { laborForceData, housingStartsData, timePeriodsLabels } = correlationData;
-    
-    // Select the appropriate labor force metric
-    const laborForceMetric = laborForceData.map(data => {
-      switch(selectedMetric) {
-        case 'employment':
-          return data.employmentRate;
-        case 'unemployment':
-          return data.unemploymentRate;
-        case 'participation':
-          return data.participationRate;
-        default:
-          return data.employmentRate;
-      }
-    });
-    
-    // Select the appropriate housing metric
-    const housingMetric = housingStartsData.map(data => {
-      switch(selectedHousingType) {
-        case 'total':
-          return data.totalStarts;
-        case 'single':
-          return data.singleStarts;
-        case 'multiUnit':
-          return data.multiUnitStarts;
-        default:
-          return data.totalStarts;
-      }
-    });
-    
-    // Generate descriptive labels for the datasets
-    const laborForceLabel = {
-      'employment': 'Employment Rate (%)',
-      'unemployment': 'Unemployment Rate (%)',
-      'participation': 'Participation Rate (%)'
+    const { housingByYear, labourRates, selectedMetric, selectedHousingType } = this.state;
+
+    const labels = housingByYear.map(h => String(h.year));
+
+    const labourValue = {
+      employment: labourRates.employmentRate,
+      unemployment: labourRates.unemploymentRate,
+      participation: labourRates.participationRate,
     }[selectedMetric];
-    
+
+    const labourLabel = {
+      employment: 'Employment Rate — Ontario (%)',
+      unemployment: 'Unemployment Rate — Ontario (%)',
+      participation: 'Participation Rate — Ontario (%)',
+    }[selectedMetric];
+
+    const housingMetric = housingByYear.map(h => {
+      switch (selectedHousingType) {
+        case 'single': return h.singleStarts;
+        case 'multiUnit': return h.multiUnitStarts;
+        default: return h.totalStarts;
+      }
+    });
+
     const housingLabel = {
-      'total': 'Total Housing Starts',
-      'single': 'Single-Unit Housing Starts',
-      'multiUnit': 'Multi-Unit Housing Starts'
+      total: 'Total Housing Starts — Toronto',
+      single: 'Single-Unit Starts — Toronto',
+      multiUnit: 'Multi-Unit Starts — Toronto',
     }[selectedHousingType];
-    
+
     return {
-      labels: timePeriodsLabels,
+      labels,
       datasets: [
         {
-          label: laborForceLabel,
-          data: laborForceMetric,
+          label: labourLabel,
+          data: labels.map(() => labourValue),
           borderColor: 'rgba(54, 162, 235, 1)',
-          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          backgroundColor: 'rgba(54, 162, 235, 0.1)',
           yAxisID: 'y',
           fill: false,
-          tension: 0.4
+          tension: 0,
+          borderDash: [6, 4],
+          pointRadius: 0,
         },
         {
           label: housingLabel,
           data: housingMetric,
           borderColor: 'rgba(255, 99, 132, 1)',
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          backgroundColor: 'rgba(255, 99, 132, 0.15)',
           yAxisID: 'y1',
-          fill: false,
-          tension: 0.4
+          fill: true,
+          tension: 0.4,
+          pointRadius: 4,
+          pointHoverRadius: 6,
         }
       ]
     };
@@ -275,55 +220,55 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
 
   private readonly getChartOptions = (): any => {
     const { selectedMetric, selectedHousingType } = this.state;
-    
-    // Determine y-axis label based on selected metric
+    const { darkMode } = this.props;
+
     const laborForceAxisLabel = {
-      'employment': 'Employment Rate (%)',
-      'unemployment': 'Unemployment Rate (%)',
-      'participation': 'Participation Rate (%)'
+      employment: 'Employment Rate (%)',
+      unemployment: 'Unemployment Rate (%)',
+      participation: 'Participation Rate (%)'
     }[selectedMetric];
-    
-    // Determine secondary y-axis label based on selected housing type
+
     const housingAxisLabel = {
-      'total': 'Total Housing Starts',
-      'single': 'Single-Unit Housing Starts',
-      'multiUnit': 'Multi-Unit Housing Starts'
+      total: 'Total Housing Starts',
+      single: 'Single-Unit Housing Starts',
+      multiUnit: 'Multi-Unit Housing Starts'
     }[selectedHousingType];
-    
-    // Determine y-axis range based on selected metric
+
     const laborForceAxisRange = {
-      'employment': { min: 60, max: 75 },
-      'unemployment': { min: 3, max: 10 },
-      'participation': { min: 73, max: 82 }
+      employment: { min: 50, max: 100 },
+      unemployment: { min: 0, max: 20 },
+      participation: { min: 50, max: 100 }
     }[selectedMetric];
-    
+
     return {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: {
-        mode: 'index',
-        intersect: false,
-      },
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         title: {
           display: true,
-          text: `Correlation Between ${laborForceAxisLabel} and ${housingAxisLabel} in Toronto`,
-          font: {
-            size: 18,
-            weight: 'bold'
+          text: `${laborForceAxisLabel} vs ${housingAxisLabel} — Toronto`,
+          font: { size: 16, weight: 'bold', family: CHART_FONT_FAMILY },
+          color: chartTitleColor(darkMode),
+          padding: { bottom: 16 },
+        },
+        legend: {
+          labels: {
+            color: chartTextColor(darkMode),
+            font: { family: CHART_FONT_FAMILY, size: 12 },
+            usePointStyle: true,
+            padding: 16,
           }
         },
         tooltip: {
           callbacks: {
-            label: function(context: any) {
-              let label = context.dataset.label || '';
-              if (label) {
-                label += ': ';
-              }
-              if (context.datasetIndex === 0) {
-                label += context.parsed.y.toFixed(1) + '%';
+            label: (ctx: any) => {
+              let label = ctx.dataset.label || '';
+              if (label) label += ': ';
+              if (ctx.datasetIndex === 0) {
+                label += ctx.parsed.y.toFixed(1) + '%';
               } else {
-                label += context.parsed.y.toFixed(0);
+                label += ctx.parsed.y.toLocaleString();
               }
               return label;
             }
@@ -333,13 +278,14 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
       scales: {
         x: {
           display: true,
+          grid: { color: chartGridColor(darkMode), drawBorder: false },
           title: {
             display: true,
-            text: 'Time Period',
-            font: {
-              weight: 'bold'
-            }
-          }
+            text: 'Year',
+            font: { weight: 'bold', family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
+          },
+          ticks: { color: chartTextColor(darkMode), font: { family: CHART_FONT_FAMILY, size: 11 } }
         },
         y: {
           type: 'linear',
@@ -347,14 +293,16 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
           position: 'left',
           min: laborForceAxisRange.min,
           max: laborForceAxisRange.max,
+          grid: { color: chartGridColor(darkMode), drawBorder: false },
           title: {
             display: true,
             text: laborForceAxisLabel,
-            font: {
-              weight: 'bold'
-            }
+            font: { weight: 'bold', family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
           },
           ticks: {
+            color: chartTextColor(darkMode),
+            font: { family: CHART_FONT_FAMILY, size: 11 },
             callback: (value: any) => `${value}%`
           }
         },
@@ -362,16 +310,18 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
           type: 'linear',
           display: true,
           position: 'right',
-          grid: {
-            drawOnChartArea: false,
-          },
+          grid: { drawOnChartArea: false },
           title: {
             display: true,
             text: housingAxisLabel,
-            font: {
-              weight: 'bold'
-            }
+            font: { weight: 'bold', family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
           },
+          ticks: {
+            color: chartTextColor(darkMode),
+            font: { family: CHART_FONT_FAMILY, size: 11 },
+            callback: (v: any) => v.toLocaleString()
+          }
         },
       }
     };
@@ -379,45 +329,71 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
 
   public render(): React.JSX.Element {
     const { loading, error, chartKey, description, selectedMetric, selectedHousingType } = this.state;
-    const {darkMode} = this.props;
+    const { darkMode } = this.props;
     if (loading) {
-      return <div className="text-center text-gray-600">Loading...</div>;
+      return (
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="chart-container flex-1 w-full">
+            <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
+              <div className="flex flex-wrap gap-4">
+                <div>
+                  <div className={`h-4 w-32 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+                  <div className={`h-10 w-40 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded animate-pulse`}></div>
+                </div>
+                <div>
+                  <div className={`h-4 w-24 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+                  <div className={`h-10 w-40 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded animate-pulse`}></div>
+                </div>
+              </div>
+            </div>
+            <div className={`h-[400px] w-full max-w-[900px] mx-auto ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg animate-pulse flex items-center justify-center`}>
+              <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading chart...</span>
+            </div>
+            <div className="mt-4">
+              <div className={`h-6 w-32 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+              <div className={`w-full p-3 border-2 border-[var(--color-border)] ${darkMode ? 'bg-transparent' : 'bg-white/50'} rounded-lg`}>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse w-5/6`}></div>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded animate-pulse w-4/6`}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     return (
       <div className="flex flex-col md:flex-row gap-6 items-start">
-        {/* Chart Container */}
-        <div className={`flex-1 border-2 ${darkMode ? 'border-white' : 'border-[#1ed1d6]'} rounded-lg shadow-md p-4`}>
+        <div className="chart-container flex-1 w-full">
           {error && <div className="error-banner bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
 
           <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
-            {/* Filter controls */}
             <div className="flex flex-wrap gap-4">
               <div>
-                <label htmlFor="metric-select" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="metric-select" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
                   Labor Force Metric:
                 </label>
                 <select
                   id="metric-select"
                   value={selectedMetric}
                   onChange={this.handleMetricChange}
-                  className="p-2 border border-gray-300 rounded-lg bg-white text-black"
+                  className="form-select"
                 >
                   <option value="employment">Employment Rate</option>
                   <option value="unemployment">Unemployment Rate</option>
                   <option value="participation">Participation Rate</option>
                 </select>
               </div>
-              
+
               <div>
-                <label htmlFor="housing-select" className="block text-sm font-medium text-gray-700 mb-1">
+                <label htmlFor="housing-select" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
                   Housing Type:
                 </label>
                 <select
                   id="housing-select"
                   value={selectedHousingType}
                   onChange={this.handleHousingTypeChange}
-                  className="p-2 border border-gray-300 rounded-lg bg-white text-black"
+                  className="form-select"
                 >
                   <option value="total">Total Housing Starts</option>
                   <option value="single">Single-Unit Housing</option>
@@ -428,28 +404,25 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
           </div>
 
           <div style={{ height: '400px', width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-            <Line 
+            <Line
               key={chartKey}
-              data={this.getChartData()} 
+              data={this.getChartData()}
               options={this.getChartOptions()}
               id="labour-housing-chart"
             />
           </div>
 
-          {/* Description Box */}
           <div className="mt-4">
-            <label htmlFor="chart-description" className={`block ${darkMode ? 'text-white' : 'text-blue-700'} font-semibold mb-2 text-xl`}>
+            <label htmlFor="chart-description" className={`chart-section-label block font-semibold mb-2 text-xl ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}>
               Data Summary
             </label>
-            <div 
-              className={`w-full p-2 border-2 ${darkMode ? 'border-white' : 'border-[#1ed1d6]'} rounded-lg ${darkMode ? 'text-white' : 'text-blue-700'}`}
+            <div
+              className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg text-area-styled ${darkMode ? 'bg-transparent text-white' : 'bg-white/50 text-[var(--color-primary-dark)]'}`}
             >
               {description}
             </div>
           </div>
         </div>
-
-      
       </div>
     );
   }

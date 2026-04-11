@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Radar } from 'react-chartjs-2';
+import { CHART_FONT_FAMILY, chartTextColor, chartTitleColor, chartGridColor } from '../chartTheme';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -44,6 +45,9 @@ interface RadarChartState {
   chartKey: number;
   showCompletions: boolean;
   description: string;
+  selectedYear: number | null;
+  availableYears: number[];
+  rawData: any[];
 }
 
 
@@ -54,7 +58,10 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
     error: null,
     chartKey: Date.now(),
     showCompletions: this.props.showCompletions || false,
-    description: "This radar chart visualizes housing data across major Canadian metropolitan areas. Each axis represents a different housing type: singles, semis, townhomes, and apartments. The radar shape illustrates the distribution pattern of housing across these categories, making it easy to identify which cities favor certain housing types. Toggle between housing starts and completions to compare how construction priorities match with finished housing projects."
+    description: "This radar chart visualizes housing data across major Canadian metropolitan areas. Each axis represents a different housing type: singles, semis, townhomes, and apartments. The radar shape illustrates the distribution pattern of housing across these categories, making it easy to identify which cities favor certain housing types. Toggle between housing starts and completions to compare how construction priorities match with finished housing projects.",
+    selectedYear: null,
+    availableYears: [],
+    rawData: []
   };
 
   public componentDidMount(): void {
@@ -87,53 +94,26 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
 
   private readonly fetchData = async (): Promise<void> => {
     try {
-      // Fetch all housing data
-      const response = await fetch('/api/housingStats'); 
+      const response = await fetch('/api/housingStats');
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      
+
       const allData = await response.json();
-      console.log('Raw data for radar charts:', allData);
-      
-      // Initialize city data structure with default values
-      const cities = ["Vancouver", "Toronto", "Montreal", "Edmonton", "Ottawa-Gatineau"];
-      const cityData: Record<string, CityHousingData> = {};
-      
-      cities.forEach(city => {
-        cityData[city] = {
-          singlesStarts: 0,
-          semisStarts: 0,
-          rowStarts: 0,
-          apartmentStarts: 0,
-          singlesComplete: 0,
-          semisComplete: 0,
-          rowComplete: 0,
-          apartmentComplete: 0
-        };
-      });
-      
-      // Process real data - notice the property name adjustments to match backend model
+
+      const yearsSet = new Set<number>();
       allData.forEach((item: any) => {
-        const city = item.censusArea;
-        if (cities.includes(city)) {
-          // Add starts data - note: backend uses 'singleStarts' (singular) but we use 'singlesStarts' (plural)
-          cityData[city].singlesStarts += item.singleStarts || 0;
-          cityData[city].semisStarts += item.semisStarts || 0;
-          cityData[city].rowStarts += item.rowStarts || 0;
-          cityData[city].apartmentStarts += item.apartmentStarts || 0;
-          
-          // Add completions data
-          cityData[city].singlesComplete += item.singlesComplete || 0;
-          cityData[city].semisComplete += item.semisComplete || 0;
-          cityData[city].rowComplete += item.rowComplete || 0;
-          cityData[city].apartmentComplete += item.apartmentComplete || 0;
-        }
+        if (item.year) yearsSet.add(item.year);
       });
-      
-      console.log('Processed city data for radar chart:', cityData);
-      
+      const availableYears = Array.from(yearsSet).sort((a, b) => b - a);
+      const selectedYear = availableYears[0] ?? null;
+
+      const cityData = this.processDataForYear(allData, selectedYear);
+
       this.setState({
+        rawData: allData,
+        availableYears,
+        selectedYear,
         cityData,
         loading: false,
         error: null,
@@ -148,10 +128,43 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
     }
   };
 
+  private processDataForYear(allData: any[], year: number | null): Record<string, CityHousingData> {
+    const cities = ["Vancouver", "Toronto", "Montreal", "Edmonton", "Ottawa-Gatineau"];
+    const cityData: Record<string, CityHousingData> = {};
+    cities.forEach(city => {
+      cityData[city] = {
+        singlesStarts: 0, semisStarts: 0, rowStarts: 0, apartmentStarts: 0,
+        singlesComplete: 0, semisComplete: 0, rowComplete: 0, apartmentComplete: 0
+      };
+    });
+
+    allData.forEach((item: any) => {
+      if (year && item.year !== year) return;
+      const city = item.censusArea;
+      if (cities.includes(city)) {
+        cityData[city].singlesStarts += item.singleStarts || 0;
+        cityData[city].semisStarts += item.semisStarts || 0;
+        cityData[city].rowStarts += item.rowStarts || 0;
+        cityData[city].apartmentStarts += item.apartmentStarts || 0;
+        cityData[city].singlesComplete += item.singlesComplete || 0;
+        cityData[city].semisComplete += item.semisComplete || 0;
+        cityData[city].rowComplete += item.rowComplete || 0;
+        cityData[city].apartmentComplete += item.apartmentComplete || 0;
+      }
+    });
+    return cityData;
+  }
+
+  private readonly handleYearChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    const year = parseInt(event.target.value, 10);
+    const cityData = this.processDataForYear(this.state.rawData, year);
+    this.setState({ selectedYear: year, cityData, chartKey: Date.now() });
+  };
+
   private readonly getRadarChartData = (): any => {
     const { cityData, showCompletions } = this.state;
     const cities = Object.keys(cityData);
-    
+
     // Define colors for each city
     const cityColors = {
       "Vancouver": { bg: 'rgba(54, 162, 235, 0.2)', border: 'rgba(54, 162, 235, 1)' },
@@ -160,26 +173,26 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
       "Edmonton": { bg: 'rgba(75, 192, 192, 0.2)', border: 'rgba(75, 192, 192, 1)' },
       "Ottawa-Gatineau": { bg: 'rgba(153, 102, 255, 0.2)', border: 'rgba(153, 102, 255, 1)' }
     };
-    
+
     // Create datasets for each city
     const datasets = cities.map(city => {
-      const data = showCompletions 
+      const data = showCompletions
         ? [
-            cityData[city].singlesComplete || 0,
-            cityData[city].semisComplete || 0,
-            cityData[city].rowComplete || 0,
-            cityData[city].apartmentComplete || 0
-          ]
+          cityData[city].singlesComplete || 0,
+          cityData[city].semisComplete || 0,
+          cityData[city].rowComplete || 0,
+          cityData[city].apartmentComplete || 0
+        ]
         : [
-            cityData[city].singlesStarts || 0,
-            cityData[city].semisStarts || 0,
-            cityData[city].rowStarts || 0,
-            cityData[city].apartmentStarts || 0
-          ];
-          
-      const color = cityColors[city as keyof typeof cityColors] || 
+          cityData[city].singlesStarts || 0,
+          cityData[city].semisStarts || 0,
+          cityData[city].rowStarts || 0,
+          cityData[city].apartmentStarts || 0
+        ];
+
+      const color = cityColors[city as keyof typeof cityColors] ||
         { bg: 'rgba(201, 203, 207, 0.2)', border: 'rgba(201, 203, 207, 1)' };
-      
+
       return {
         label: city,
         data: data,
@@ -192,7 +205,7 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
         pointHoverBorderColor: color.border
       };
     });
-    
+
     return {
       labels: ['Singles', 'Semis', 'Townhomes', 'Apartments'],
       datasets: datasets
@@ -200,9 +213,13 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
   };
 
   private readonly getRadarOptions = (): any => {
-    const { showCompletions } = this.state;
-    const chartTitle = showCompletions ? 'Housing Completions by Type' : 'Housing Starts by Type';
-    
+    const { showCompletions, selectedYear } = this.state;
+    const { darkMode } = this.props;
+    const yearLabel = selectedYear ? ` (${selectedYear})` : '';
+    const chartTitle = showCompletions
+      ? `Housing Completions by Type${yearLabel}`
+      : `Housing Starts by Type${yearLabel}`;
+
     return {
       responsive: true,
       maintainAspectRatio: false,
@@ -210,23 +227,22 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
         title: {
           display: true,
           text: chartTitle,
-          font: {
-            size: 20,
-            family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif",
-            weight: 'bold',
-          },
+          font: { size: 18, family: CHART_FONT_FAMILY, weight: 'bold' },
+          color: chartTitleColor(darkMode),
+          padding: { bottom: 16 },
         },
         legend: {
           position: 'top',
           labels: {
-            font: {
-              size: 12
-            }
+            font: { size: 12, family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
+            usePointStyle: true,
+            padding: 16,
           }
         },
         tooltip: {
           callbacks: {
-            label: function(context: any) {
+            label: function (context: any) {
               return `${context.dataset.label}: ${context.raw}`;
             }
           }
@@ -236,22 +252,16 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
         r: {
           beginAtZero: true,
           ticks: {
-            color: '#666',
-            backdropColor: 'transparent'
+            color: chartTextColor(darkMode),
+            backdropColor: 'transparent',
+            font: { family: CHART_FONT_FAMILY, size: 10 }
           },
           pointLabels: {
-            color: '#333',
-            font: {
-              size: 12,
-              weight: 'bold'
-            }
+            color: chartTextColor(darkMode),
+            font: { size: 12, weight: 'bold', family: CHART_FONT_FAMILY }
           },
-          grid: {
-            color: 'rgba(0, 0, 0, 0.1)'
-          },
-          angleLines: {
-            color: 'rgba(0, 0, 0, 0.1)'
-          }
+          grid: { color: chartGridColor(darkMode) },
+          angleLines: { color: chartGridColor(darkMode) }
         }
       }
     };
@@ -259,44 +269,85 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
 
   public render(): React.JSX.Element {
     const { loading, error, chartKey, description, showCompletions } = this.state;
-    const { darkMode} = this.props;
+    const { darkMode } = this.props;
 
     if (loading) {
-      return <div className="text-center text-gray-600">Loading...</div>;
+      return (
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          {/* Skeleton Radar Chart Container */}
+          <div className="chart-container flex-1 w-full">
+            {/* Skeleton toggle button */}
+            <div className="mb-4">
+              <div className={`h-10 w-48 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded animate-pulse`}></div>
+            </div>
+
+            {/* Skeleton chart area */}
+            <div className={`h-[500px] w-full ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg animate-pulse flex items-center justify-center`}>
+              <span className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading chart...</span>
+            </div>
+
+            {/* Skeleton description */}
+            <div className="mt-4">
+              <div className={`h-6 w-32 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+              <div className={`w-full p-3 border-2 border-[var(--color-border)] ${darkMode ? 'bg-transparent' : 'bg-white/50'} rounded-lg`}>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse w-5/6`}></div>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`}></div>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded animate-pulse w-4/6`}></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     return (
       <div className="flex flex-col md:flex-row gap-6 items-start">
         {/* Radar Chart Container */}
-        <div className={`flex-1 border-2 ${darkMode ? 'border-white' : 'border-[#1ed1d6]'} rounded-lg shadow-md p-4`}>
+        <div className="chart-container flex-1 w-full">
           {error && <div className="error-banner bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
-          <div className="mb-4">
-            <button 
+          <div className="mb-4 flex flex-wrap gap-4 items-center">
+            <button
               onClick={this.toggleView}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200"
+              className="toggle-btn"
             >
               {showCompletions ? "Show Housing Starts" : "Show Housing Completions"}
             </button>
+            {this.state.availableYears.length > 0 && (
+              <div className="flex items-center">
+                <label htmlFor="radar-year-filter" className={`mr-2 font-semibold ${darkMode ? 'text-white' : 'text-gray-700'}`}>Year:</label>
+                <select
+                  id="radar-year-filter"
+                  value={this.state.selectedYear?.toString() ?? ''}
+                  onChange={this.handleYearChange}
+                  className="form-select"
+                >
+                  {this.state.availableYears.map(y => (
+                    <option key={y} value={y.toString()}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div style={{ height: '500px', width: '100%' }}>
-            <Radar 
+            <Radar
               key={chartKey}
-              data={this.getRadarChartData()} 
-              options={{ responsive: true, maintainAspectRatio: false }}
+              data={this.getRadarChartData()}
+              options={this.getRadarOptions()}
               id="radar-chart-container"
             />
           </div>
 
-        {/* Description Box */}
-        <div className="mt-4">
-        <label
-  htmlFor="chart-description"
-  className={`block ${darkMode ? 'text-white' : 'text-blue-700'} font-semibold mb-2 text-xl`}
+          {/* Description Box */}
+          <div className="mt-4">
+            <label
+              htmlFor="chart-description"
+              className={`chart-section-label block font-semibold mb-2 text-xl ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}
             >Data Summary</label>
             <textarea
               id="chart-description"
-              className={`w-full p-2 border-2 border-2 ${darkMode ? 'border-white' : 'border-[#1ed1d6]'} rounded-lg resize-none ${darkMode ? 'text-white' : 'text-blue-700'}`}
+              className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg resize-none text-area-styled ${darkMode ? 'bg-transparent text-white' : 'bg-white/50 text-[var(--color-primary-dark)]'}`}
               rows={5}
               value={description}
               readOnly

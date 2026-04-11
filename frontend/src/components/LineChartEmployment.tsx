@@ -1,5 +1,6 @@
 import React, { Component } from 'react';
 import { Line } from 'react-chartjs-2';
+import { CHART_FONT_FAMILY, CHART_COLORS, chartGridColor, chartTextColor, chartTitleColor } from '../chartTheme';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -23,9 +24,20 @@ ChartJS.register(
   Filler
 );
 
+interface LabourRecord {
+  province: number;
+  educationLevel: number;
+  labourForceStatus: number;
+}
 
+interface RatesByProvinceAndEducation {
+  [provinceCode: number]: {
+    [educationCode: number]: number;
+  };
+}
 
 interface LineChartState {
+  rateData: RatesByProvinceAndEducation;
   loading: boolean;
   error: string | null;
   chartKey: number;
@@ -36,42 +48,42 @@ interface LineChartProps {
   darkMode: boolean;
 }
 
+const PROVINCE_NAMES: Record<number, string> = {
+  10: 'NL',
+  11: 'PEI',
+  12: 'NS',
+  13: 'NB',
+  24: 'Quebec',
+  35: 'Ontario',
+  46: 'Manitoba',
+  47: 'Saskatchewan',
+  48: 'Alberta',
+  59: 'BC'
+};
+
+const EDUCATION_NAMES: Record<number, string> = {
+  0: '0–8 years',
+  1: 'Some high school',
+  2: 'High school grad',
+  3: 'Some post-sec',
+  4: 'Post-sec cert/dip',
+  5: "Bachelor's",
+  6: "Above bachelor's"
+};
+
+const PROVINCE_ORDER = [10, 11, 12, 13, 24, 35, 46, 47, 48, 59];
+
 class LineChartEmployment extends Component<LineChartProps, LineChartState> {
-  private readonly provinceNames: Record<number, string> = {
-    1: 'Ontario',
-    2: 'Quebec',
-    3: 'British Columbia',
-    4: 'Alberta',
-    5: 'Manitoba',
-    6: 'Saskatchewan',
-    7: 'Nova Scotia',
-    8: 'New Brunswick',
-    9: 'Newfoundland and Labrador',
-    10: 'Prince Edward Island'
-  };
-
-  private readonly educationNames: Record<number, string> = {
-    1: 'High School',
-    2: 'College',
-    3: 'University',
-    4: 'Post Graduate'
-  };
-
-  private readonly labourStatuses: Record<number, string> = {
-    1: 'Employed',
-    2: 'Unemployed',
-    3: 'Not in Labour Force'
-  };
-
   public state: LineChartState = {
+    rateData: {},
     loading: true,
     error: null,
     chartKey: Date.now(),
-    description: "This chart displays employment rates based on education level across different provinces. The employment rate is calculated as the percentage of people in the labour force who are employed."
+    description: "Employment rate by education level across provinces, calculated from Statistics Canada Labour Force Survey microdata. The rate is the share of labour force participants who are employed."
   };
 
   public componentDidMount(): void {
-    this.setState({ loading: false, chartKey: Date.now() });
+    this.fetchData();
   }
 
   public componentWillUnmount(): void {
@@ -81,162 +93,104 @@ class LineChartEmployment extends Component<LineChartProps, LineChartState> {
     }
   }
 
-  private getSimulatedData() {
-    const simulatedData = [];
-    
-    for (let province = 1; province <= 10; province++) {
-      for (let educationLevel = 1; educationLevel <= 4; educationLevel++) {
-        const totalPeople = 1000 + Math.floor(Math.random() * 5000);
-        const employedCount = Math.floor(totalPeople * (0.5 + (educationLevel * 0.08) + Math.random() * 0.1));
-        const unemployedCount = totalPeople - employedCount;
-        
-        simulatedData.push({
-          province,
-          educationLevel,
-          labourForceStatus: 1,
-          count: employedCount
-        });
-        
-        simulatedData.push({
-          province,
-          educationLevel,
-          labourForceStatus: 2,
-          count: unemployedCount
-        });
-        
-        simulatedData.push({
-          province,
-          educationLevel,
-          labourForceStatus: 3,
-          count: Math.floor(totalPeople * 0.3)
-        });
+  private readonly fetchData = async (): Promise<void> => {
+    try {
+      const response = await fetch('/api/labourMarket');
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const records: LabourRecord[] = await response.json();
+      const rateData = this.computeRates(records);
+
+      this.setState({ rateData, loading: false, error: null, chartKey: Date.now() });
+    } catch (err) {
+      console.error('Error fetching labour data:', err);
+      this.setState({
+        error: err instanceof Error ? err.message : 'Unexpected error',
+        loading: false
+      });
+    }
+  };
+
+  private computeRates(records: LabourRecord[]): RatesByProvinceAndEducation {
+    const groups: Record<string, { employed: number; labourForce: number }> = {};
+
+    for (const r of records) {
+      const key = `${r.province}:${r.educationLevel}`;
+      if (!groups[key]) groups[key] = { employed: 0, labourForce: 0 };
+
+      if (r.labourForceStatus === 1) {
+        groups[key].employed += 1;
+        groups[key].labourForce += 1;
+      } else if (r.labourForceStatus === 2) {
+        groups[key].labourForce += 1;
       }
     }
-    
-    return simulatedData;
-  }
-  
-  private calculateEmploymentRates(data) {
-    const employmentRatesByProvince = {};
-    const employmentRatesByEducation = {};
-    
-    Object.keys(this.provinceNames).forEach(provinceId => {
-      employmentRatesByProvince[provinceId] = 0;
-    });
-    
-    Object.keys(this.educationNames).forEach(educationId => {
-      employmentRatesByEducation[educationId] = 0;
-    });
-    
-    const provinceGroups = {};
-    const educationGroups = {};
-    
-    data.forEach(entry => {
-      const { province, educationLevel, labourForceStatus, count } = entry;
-      
-      if (!provinceGroups[province]) {
-        provinceGroups[province] = { employed: 0, labourForce: 0 };
-      }
-      
-      if (labourForceStatus === 1) {
-        provinceGroups[province].employed += count;
-        provinceGroups[province].labourForce += count;
-      } else if (labourForceStatus === 2) {
-        provinceGroups[province].labourForce += count;
-      }
-      
-      if (!educationGroups[educationLevel]) {
-        educationGroups[educationLevel] = { employed: 0, labourForce: 0 };
-      }
-      
-      if (labourForceStatus === 1) {
-        educationGroups[educationLevel].employed += count;
-        educationGroups[educationLevel].labourForce += count;
-      } else if (labourForceStatus === 2) {
-        educationGroups[educationLevel].labourForce += count;
-      }
-    });
-    
-    Object.keys(provinceGroups).forEach(provinceId => {
-      const group = provinceGroups[provinceId];
-      employmentRatesByProvince[provinceId] = 
-        group.labourForce > 0 ? (group.employed / group.labourForce) * 100 : 0;
-    });
-    
-    Object.keys(educationGroups).forEach(educationId => {
-      const group = educationGroups[educationId];
-      employmentRatesByEducation[educationId] = 
-        group.labourForce > 0 ? (group.employed / group.labourForce) * 100 : 0;
-    });
-    
-    return { byProvince: employmentRatesByProvince, byEducation: employmentRatesByEducation };
+
+    const result: RatesByProvinceAndEducation = {};
+    for (const [key, g] of Object.entries(groups)) {
+      const [prov, edu] = key.split(':').map(Number);
+      if (!result[prov]) result[prov] = {};
+      result[prov][edu] = g.labourForce > 0 ? (g.employed / g.labourForce) * 100 : 0;
+    }
+    return result;
   }
 
   private readonly getLineChartData = (): any => {
-    const simulatedData = this.getSimulatedData();
-    const employmentRates = this.calculateEmploymentRates(simulatedData);
-    
-    const educationColors = {
-      1: { bg: 'rgba(255, 99, 132, 0.2)', border: 'rgba(255, 99, 132, 1)' },
-      2: { bg: 'rgba(54, 162, 235, 0.2)', border: 'rgba(54, 162, 235, 1)' },
-      3: { bg: 'rgba(255, 206, 86, 0.2)', border: 'rgba(255, 206, 86, 1)' },
-      4: { bg: 'rgba(75, 192, 192, 0.2)', border: 'rgba(75, 192, 192, 1)' }
-    };
-    
-    const datasets = Object.entries(this.educationNames).map(([id, name]) => {
-      const educationId = parseInt(id);
-      
-      const data = Object.keys(this.provinceNames).map(() => {
-        return employmentRates.byEducation[educationId] + (Math.random() * 6 - 3);
-      });
-      
+    const { rateData } = this.state;
+
+    const educationCodes = new Set<number>();
+    Object.values(rateData).forEach(byEdu => {
+      Object.keys(byEdu).forEach(k => educationCodes.add(Number(k)));
+    });
+    const sortedEdu = Array.from(educationCodes).sort((a, b) => a - b);
+
+    const datasets = sortedEdu.map((eduCode, idx) => {
+      const color = CHART_COLORS[idx % CHART_COLORS.length];
+      const data = PROVINCE_ORDER.map(prov => rateData[prov]?.[eduCode] ?? null);
       return {
-        label: name,
+        label: EDUCATION_NAMES[eduCode] ?? `Level ${eduCode}`,
         data,
-        backgroundColor: educationColors[educationId].bg,
-        borderColor: educationColors[educationId].border,
+        backgroundColor: color.fill,
+        borderColor: color.solid,
         borderWidth: 2,
         tension: 0.4,
         fill: true,
-        pointRadius: 3,
+        pointRadius: 4,
+        pointHoverRadius: 6,
       };
     });
-    
+
     return {
-      labels: Object.values(this.provinceNames),
+      labels: PROVINCE_ORDER.map(p => PROVINCE_NAMES[p] ?? `${p}`),
       datasets
     };
   };
 
   private readonly getLineOptions = (): any => {
-    const chartTitle = 'Employment Rate by Education Level Across Provinces';
-    
+    const { darkMode } = this.props;
     return {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         title: {
           display: true,
-          text: chartTitle,
-          font: {
-            size: 20,
-            family: "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif",
-            weight: 'bold',
-          },
+          text: 'Employment Rate by Education Level Across Provinces',
+          font: { size: 18, family: CHART_FONT_FAMILY, weight: 'bold' },
+          color: chartTitleColor(darkMode),
+          padding: { bottom: 16 },
         },
         legend: {
           position: 'top',
           labels: {
-            font: {
-              size: 12
-            }
+            font: { size: 11, family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
+            usePointStyle: true,
+            padding: 14,
           }
         },
         tooltip: {
           callbacks: {
-            label: function(context: any) {
-              return `${context.dataset.label}: ${context.raw.toFixed(1)}%`;
-            }
+            label: (ctx: any) => `${ctx.dataset.label}: ${ctx.raw?.toFixed(1) ?? '—'}%`
           }
         }
       },
@@ -245,27 +199,28 @@ class LineChartEmployment extends Component<LineChartProps, LineChartState> {
           beginAtZero: false,
           min: 40,
           max: 100,
+          grid: { color: chartGridColor(darkMode), drawBorder: false },
           title: {
             display: true,
             text: 'Employment Rate (%)',
-            font: {
-              weight: 'bold'
-            }
+            font: { weight: 'bold', family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
           },
           ticks: {
-            callback: function(value: any) {
-              return value + '%';
-            }
+            color: chartTextColor(darkMode),
+            font: { family: CHART_FONT_FAMILY, size: 11 },
+            callback: (v: any) => v + '%'
           }
         },
         x: {
+          grid: { color: chartGridColor(darkMode), drawBorder: false },
           title: {
             display: true,
-            text: 'Provinces',
-            font: {
-              weight: 'bold'
-            }
-          }
+            text: 'Province',
+            font: { weight: 'bold', family: CHART_FONT_FAMILY },
+            color: chartTextColor(darkMode),
+          },
+          ticks: { color: chartTextColor(darkMode), font: { family: CHART_FONT_FAMILY, size: 11 } }
         }
       }
     };
@@ -273,44 +228,52 @@ class LineChartEmployment extends Component<LineChartProps, LineChartState> {
 
   public render(): React.JSX.Element {
     const { loading, error, chartKey, description } = this.state;
-    const { darkMode} = this.props;
+    const { darkMode } = this.props;
 
     if (loading) {
-      return <div className="text-center text-gray-600">Loading...</div>;
+      return (
+        <div className="flex flex-col md:flex-row gap-6 items-start">
+          <div className="chart-container flex-1 w-full">
+            <div className={`h-[400px] w-full max-w-[900px] mx-auto ${darkMode ? 'bg-gray-700' : 'bg-gray-100'} rounded-lg animate-pulse flex items-center justify-center`}>
+              <span className={darkMode ? 'text-gray-400' : 'text-gray-500'}>Loading chart...</span>
+            </div>
+            <div className="mt-4">
+              <div className={`h-6 w-32 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`} />
+              <div className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg ${darkMode ? 'bg-transparent' : 'bg-white/50'}`}>
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded mb-2 animate-pulse`} />
+                <div className={`h-4 ${darkMode ? 'bg-gray-600' : 'bg-gray-200'} rounded animate-pulse w-4/6`} />
+              </div>
+            </div>
+          </div>
+        </div>
+      );
     }
 
     return (
       <div className="flex flex-col md:flex-row gap-6 items-start">
-        {/* Chart Container */}
-        <div className={`flex-1 border-2 ${darkMode ? 'border-white' : 'border-[#1ed1d6]'} rounded-lg shadow-md p-4`}>
+        <div className="chart-container flex-1 w-full">
           {error && <div className="error-banner bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
 
           <div style={{ height: '400px', width: '100%', maxWidth: '900px', margin: '0 auto' }}>
-            <Line 
+            <Line
               key={chartKey}
-              data={this.getLineChartData()} 
-              options={{
-                responsive: true,
-                maintainAspectRatio: false
-              }}
+              data={this.getLineChartData()}
+              options={this.getLineOptions()}
               id="employment-chart-container"
             />
           </div>
 
-          {/* Description Box */}
           <div className="mt-4">
-            <label htmlFor="chart-description" className={`block ${darkMode ? 'text-white' : 'text-blue-700'} font-semibold mb-2 text-xl`}>
+            <label htmlFor="chart-description" className={`chart-section-label block font-semibold mb-2 text-xl ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}>
               Data Summary
             </label>
-            <div 
-              className={`w-full p-2 border-2 ${darkMode ? 'border-white' : 'border-[#1ed1d6]'} rounded-lg ${darkMode ? 'text-white' : 'text-blue-700'}`}
+            <div
+              className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg text-area-styled ${darkMode ? 'bg-transparent text-white' : 'bg-white/50 text-[var(--color-primary-dark)]'}`}
             >
               {description}
             </div>
           </div>
         </div>
-
-       
       </div>
     );
   }
