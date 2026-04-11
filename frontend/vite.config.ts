@@ -17,7 +17,7 @@ export default defineConfig({
         changeOrigin: true
       }
     },
-    allowedHosts: ['joblen.socs.uoguelph.ca']
+    allowedHosts: ['metropolitan.foundre.app']
   },
   test: {
     globals: true,  // This enables the use of global `expect` and `test`
