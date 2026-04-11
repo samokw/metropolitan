@@ -172,7 +172,6 @@ class LineChartEmployment extends Component<LineChartProps, LineChartState> {
     const sortedEdu = Array.from(educationCodes).sort((a, b) => a - b);
 
     const pointFill = darkMode ? 'rgba(15, 17, 22, 0.95)' : '#ffffff';
-    const pointRing = darkMode ? 'rgba(255,255,255,0.12)' : 'rgba(30, 58, 74, 0.12)';
 
     const datasets = sortedEdu.map((eduCode, idx) => {
       const stroke = EDUCATION_LINE_SERIES_STROKES[idx % EDUCATION_LINE_SERIES_STROKES.length];

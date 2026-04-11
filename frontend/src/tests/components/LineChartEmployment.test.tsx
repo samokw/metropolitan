@@ -41,7 +41,7 @@ describe('LineChartEmployment Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+    globalThis.fetch = vi.fn(async (input: string | Request | URL) => {
       const url =
         typeof input === 'string'
           ? input
