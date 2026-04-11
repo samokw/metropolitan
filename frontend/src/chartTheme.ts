@@ -1,5 +1,25 @@
+import type { Chart, Plugin } from 'chart.js';
+
 export const CHART_FONT_FAMILY =
   "'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace";
+
+/** Readable sans for chart titles and axes (loaded in index.html). */
+export const CHART_DISPLAY_SANS =
+  "'DM Sans', ui-sans-serif, system-ui, sans-serif";
+
+/**
+ * Distinct strokes for education ladder (low → high attainment), dark-mode friendly.
+ * Used by LineChartEmployment — line-only, no area fill.
+ */
+export const EDUCATION_LINE_SERIES_STROKES = [
+  '#2dd4bf',
+  '#38bdf8',
+  '#818cf8',
+  '#fbbf24',
+  '#4ade80',
+  '#e879f9',
+  '#fb7185',
+] as const;
 
 const palette = {
   cyan:    { solid: 'rgba(30, 209, 214, 1)',   fill: 'rgba(30, 209, 214, 0.18)' },
@@ -12,6 +32,73 @@ const palette = {
 } as const;
 
 export const CHART_COLORS = Object.values(palette);
+
+/** Toronto vs Hamilton bar pairs — first two theme swatches. */
+export const HOUSING_BAR_CITY_COLORS = {
+  toronto: { fill: palette.cyan.fill, stroke: palette.cyan.solid },
+  hamilton: { fill: palette.blue.fill, stroke: palette.blue.solid },
+} as const;
+
+/** Radar series — one distinct stroke per metro (fill uses same hue, low alpha). */
+export const METRO_RADAR_SERIES_COLORS: Record<string, { fill: string; stroke: string }> = {
+  Vancouver: { fill: palette.blue.fill, stroke: palette.blue.solid },
+  Toronto: { fill: palette.pink.fill, stroke: palette.pink.solid },
+  Montreal: { fill: palette.amber.fill, stroke: palette.amber.solid },
+  Edmonton: { fill: palette.green.fill, stroke: palette.green.solid },
+  'Ottawa-Gatineau': { fill: palette.purple.fill, stroke: palette.purple.solid },
+};
+
+/** Soft vertical wash behind the plot area (shared across chart components). */
+export function drawChartPlotWash(chart: Chart, darkMode: boolean): void {
+  const { ctx, chartArea } = chart;
+  if (!chartArea) return;
+  ctx.save();
+  const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+  if (darkMode) {
+    g.addColorStop(0, 'rgba(148, 163, 184, 0.07)');
+    g.addColorStop(0.55, 'rgba(148, 163, 184, 0.02)');
+    g.addColorStop(1, 'rgba(148, 163, 184, 0)');
+  } else {
+    g.addColorStop(0, 'rgba(30, 58, 74, 0.06)');
+    g.addColorStop(0.55, 'rgba(30, 58, 74, 0.02)');
+    g.addColorStop(1, 'rgba(30, 58, 74, 0)');
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(chartArea.left, chartArea.top, chartArea.width, chartArea.height);
+  ctx.restore();
+}
+
+function createPlotWashPlugin(id: string): Plugin {
+  return {
+    id,
+    beforeDatasetsDraw(chart, _args, pluginOpts) {
+      const dark = (pluginOpts as { darkMode?: boolean } | undefined)?.darkMode ?? true;
+      drawChartPlotWash(chart as Chart, dark);
+    },
+  };
+}
+
+export const employmentPlotWashPlugin = createPlotWashPlugin('employmentPlotWash');
+export const housingBarPlotWashPlugin = createPlotWashPlugin('housingBarPlotWash');
+export const housingRadarPlotWashPlugin = createPlotWashPlugin('housingRadarPlotWash');
+export const labourHousingPlotWashPlugin = createPlotWashPlugin('labourHousingPlotWash');
+
+/** Shared tooltip chrome (DM Sans) for chart.js `plugins.tooltip`. */
+export function chartTooltipPluginOptions(darkMode: boolean) {
+  return {
+    backgroundColor: darkMode ? 'rgba(22, 24, 30, 0.94)' : 'rgba(255, 255, 255, 0.97)',
+    titleColor: chartTitleColor(darkMode),
+    bodyColor: chartTextColor(darkMode),
+    borderColor: darkMode ? 'rgba(148, 163, 184, 0.25)' : 'rgba(30, 58, 74, 0.12)',
+    borderWidth: 1,
+    cornerRadius: 10,
+    padding: 12,
+    titleFont: { family: CHART_DISPLAY_SANS, size: 12, weight: '600' as const },
+    bodyFont: { family: CHART_DISPLAY_SANS, size: 12 },
+    displayColors: true,
+    boxPadding: 6,
+  };
+}
 
 export function chartGridColor(dark: boolean) {
   return dark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';

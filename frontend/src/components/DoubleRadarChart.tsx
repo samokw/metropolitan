@@ -1,6 +1,14 @@
 import React, { Component } from 'react';
 import { Radar } from 'react-chartjs-2';
-import { CHART_FONT_FAMILY, chartTextColor, chartTitleColor, chartGridColor } from '../chartTheme';
+import {
+  CHART_DISPLAY_SANS,
+  METRO_RADAR_SERIES_COLORS,
+  chartGridColor,
+  chartTextColor,
+  chartTitleColor,
+  chartTooltipPluginOptions,
+  housingRadarPlotWashPlugin,
+} from '../chartTheme';
 import {
   Chart as ChartJS,
   RadialLinearScale,
@@ -8,17 +16,19 @@ import {
   LineElement,
   Filler,
   Tooltip,
-  Legend
+  Legend,
+  Title,
 } from 'chart.js';
 
-// Register required Chart.js components for radar charts
 ChartJS.register(
   RadialLinearScale,
   PointElement,
   LineElement,
   Filler,
   Tooltip,
-  Legend
+  Legend,
+  Title,
+  housingRadarPlotWashPlugin
 );
 
 interface RadarChartProps {
@@ -163,18 +173,10 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
 
   private readonly getRadarChartData = (): any => {
     const { cityData, showCompletions } = this.state;
+    const { darkMode } = this.props;
     const cities = Object.keys(cityData);
+    const pointRing = darkMode ? 'rgba(15, 17, 22, 0.95)' : '#ffffff';
 
-    // Define colors for each city
-    const cityColors = {
-      "Vancouver": { bg: 'rgba(54, 162, 235, 0.2)', border: 'rgba(54, 162, 235, 1)' },
-      "Toronto": { bg: 'rgba(255, 99, 132, 0.2)', border: 'rgba(255, 99, 132, 1)' },
-      "Montreal": { bg: 'rgba(255, 206, 86, 0.2)', border: 'rgba(255, 206, 86, 1)' },
-      "Edmonton": { bg: 'rgba(75, 192, 192, 0.2)', border: 'rgba(75, 192, 192, 1)' },
-      "Ottawa-Gatineau": { bg: 'rgba(153, 102, 255, 0.2)', border: 'rgba(153, 102, 255, 1)' }
-    };
-
-    // Create datasets for each city
     const datasets = cities.map(city => {
       const data = showCompletions
         ? [
@@ -190,19 +192,22 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
           cityData[city].apartmentStarts || 0
         ];
 
-      const color = cityColors[city as keyof typeof cityColors] ||
-        { bg: 'rgba(201, 203, 207, 0.2)', border: 'rgba(201, 203, 207, 1)' };
+      const color = METRO_RADAR_SERIES_COLORS[city] ?? {
+        fill: 'rgba(148, 163, 184, 0.15)',
+        stroke: 'rgba(148, 163, 184, 1)',
+      };
 
       return {
         label: city,
         data: data,
-        backgroundColor: color.bg,
-        borderColor: color.border,
+        backgroundColor: color.fill,
+        borderColor: color.stroke,
         borderWidth: 2,
-        pointBackgroundColor: color.border,
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: color.border
+        pointBackgroundColor: color.stroke,
+        pointBorderColor: pointRing,
+        pointBorderWidth: 2,
+        pointHoverBackgroundColor: color.stroke,
+        pointHoverBorderColor: pointRing,
       };
     });
 
@@ -215,55 +220,66 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
   private readonly getRadarOptions = (): any => {
     const { showCompletions, selectedYear } = this.state;
     const { darkMode } = this.props;
-    const yearLabel = selectedYear ? ` (${selectedYear})` : '';
-    const chartTitle = showCompletions
-      ? `Housing Completions by Type${yearLabel}`
-      : `Housing Starts by Type${yearLabel}`;
+    const sans = CHART_DISPLAY_SANS;
+    const muted = chartTextColor(darkMode);
+    const yearSuffix = selectedYear ? ` · ${selectedYear}` : '';
+    const titleLines = showCompletions
+      ? [`Housing completions by type${yearSuffix}`, 'Five major metros compared']
+      : [`Housing starts by type${yearSuffix}`, 'Five major metros compared'];
 
     return {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: 'nearest' as const, intersect: false },
       plugins: {
+        housingRadarPlotWash: { darkMode },
         title: {
           display: true,
-          text: chartTitle,
-          font: { size: 18, family: CHART_FONT_FAMILY, weight: 'bold' },
+          text: titleLines,
+          font: {
+            size: 17,
+            family: sans,
+            weight: '600',
+            lineHeight: 1.35,
+          },
           color: chartTitleColor(darkMode),
-          padding: { bottom: 16 },
+          padding: { top: 4, bottom: 18 },
         },
         legend: {
-          position: 'top',
+          position: 'bottom' as const,
+          align: 'start' as const,
           labels: {
-            font: { size: 12, family: CHART_FONT_FAMILY },
-            color: chartTextColor(darkMode),
+            font: { size: 11, family: sans, weight: '500' },
+            color: muted,
             usePointStyle: true,
-            padding: 16,
-          }
+            pointStyle: 'circle' as const,
+            padding: 10,
+          },
         },
         tooltip: {
+          ...chartTooltipPluginOptions(darkMode),
           callbacks: {
-            label: function (context: any) {
-              return `${context.dataset.label}: ${context.raw}`;
-            }
-          }
-        }
+            label: (context: { dataset: { label?: string }; raw: number }) =>
+              `${context.dataset.label ?? ''}: ${Number(context.raw).toLocaleString()}`,
+          },
+        },
       },
       scales: {
         r: {
           beginAtZero: true,
           ticks: {
-            color: chartTextColor(darkMode),
+            color: muted,
             backdropColor: 'transparent',
-            font: { family: CHART_FONT_FAMILY, size: 10 }
+            font: { family: sans, size: 10 },
           },
           pointLabels: {
-            color: chartTextColor(darkMode),
-            font: { size: 12, weight: 'bold', family: CHART_FONT_FAMILY }
+            color: muted,
+            font: { size: 12, weight: '600', family: sans },
           },
           grid: { color: chartGridColor(darkMode) },
-          angleLines: { color: chartGridColor(darkMode) }
-        }
-      }
+          angleLines: { color: chartGridColor(darkMode) },
+        },
+      },
     };
   };
 
@@ -306,7 +322,15 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
         {/* Radar Chart Container */}
         <div className="chart-container flex-1 w-full">
           {error && <div className="error-banner bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
-          <div className="mb-4 flex flex-wrap gap-4 items-center">
+
+          <p
+            className={`text-xs tracking-wide uppercase mb-3 max-w-[900px] mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}
+            style={{ fontFamily: CHART_DISPLAY_SANS }}
+          >
+            Census metropolitan areas · Singles through apartments · Toggle starts / completions
+          </p>
+
+          <div className="mb-4 flex flex-wrap gap-4 items-center max-w-[900px] mx-auto">
             <button
               onClick={this.toggleView}
               className="toggle-btn"
@@ -330,7 +354,14 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
             )}
           </div>
 
-          <div style={{ height: '500px', width: '100%' }}>
+          <div
+            className={`housing-radar-chart-panel max-w-[900px] mx-auto rounded-2xl border p-5 md:p-6 ${
+              darkMode
+                ? 'border-white/[0.08] bg-[linear-gradient(165deg,rgba(255,255,255,0.04)_0%,transparent_45%)] shadow-[0_24px_48px_-24px_rgba(0,0,0,0.65)]'
+                : 'border-[var(--color-border)] bg-white/60 shadow-[0_20px_40px_-28px_rgba(30,58,74,0.18)]'
+            }`}
+            style={{ height: '480px', width: '100%' }}
+          >
             <Radar
               key={chartKey}
               data={this.getRadarChartData()}
@@ -339,19 +370,21 @@ class DoubleRadarChart extends Component<RadarChartProps, RadarChartState> {
             />
           </div>
 
-          {/* Description Box */}
-          <div className="mt-4">
+          <div className="mt-5 max-w-[900px] mx-auto">
             <label
-              htmlFor="chart-description"
-              className={`chart-section-label block font-semibold mb-2 text-xl ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}
-            >Data Summary</label>
-            <textarea
-              id="chart-description"
-              className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg resize-none text-area-styled ${darkMode ? 'bg-transparent text-white' : 'bg-white/50 text-[var(--color-primary-dark)]'}`}
-              rows={5}
-              value={description}
-              readOnly
-            />
+              htmlFor="radar-chart-description"
+              className={`chart-section-label block font-semibold mb-2 text-lg tracking-tight ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}
+              style={{ fontFamily: CHART_DISPLAY_SANS }}
+            >
+              Data summary
+            </label>
+            <div
+              id="radar-chart-description"
+              className={`w-full p-4 border rounded-xl text-[15px] leading-relaxed ${darkMode ? 'border-white/[0.1] bg-white/[0.03] text-slate-200' : 'border-[var(--color-border)] bg-white/80 text-[var(--color-primary-dark)]'}`}
+              style={{ fontFamily: CHART_DISPLAY_SANS }}
+            >
+              {description}
+            </div>
           </div>
         </div>
 

@@ -1,6 +1,14 @@
 import React, { Component } from 'react';
 import { Line } from 'react-chartjs-2';
-import { CHART_FONT_FAMILY, chartGridColor, chartTextColor, chartTitleColor } from '../chartTheme';
+import {
+  CHART_COLORS,
+  CHART_DISPLAY_SANS,
+  chartGridColor,
+  chartTextColor,
+  chartTitleColor,
+  chartTooltipPluginOptions,
+  labourHousingPlotWashPlugin,
+} from '../chartTheme';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -21,7 +29,8 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  labourHousingPlotWashPlugin
 );
 
 interface HousingByYear {
@@ -31,15 +40,19 @@ interface HousingByYear {
   multiUnitStarts: number;
 }
 
-interface LabourRates {
+/** Ontario annual rates: prefer PUMF roll-up, else published StatCan annual table */
+interface LabourRatesByYear {
+  year: number;
   employmentRate: number;
   unemploymentRate: number;
   participationRate: number;
+  monthsAveraged?: number;
+  partialYear?: boolean;
 }
 
 interface LabourForceStatsState {
   housingByYear: HousingByYear[];
-  labourRates: LabourRates;
+  labourByYear: LabourRatesByYear[];
   loading: boolean;
   error: string | null;
   chartKey: number;
@@ -53,15 +66,18 @@ interface LabourForceStatsProps {
 }
 
 class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStatsState> {
+  /** Set in getChartData for labour tooltip (interpolated gap years between observed rates). */
+  private chartLabourInterpolated: boolean[] = [];
+
   public state: LabourForceStatsState = {
     housingByYear: [],
-    labourRates: { employmentRate: 0, unemploymentRate: 0, participationRate: 0 },
+    labourByYear: [],
     loading: true,
     error: null,
     chartKey: Date.now(),
     selectedMetric: 'employment',
     selectedHousingType: 'total',
-    description: "Housing starts for Toronto are from Statistics Canada (table 34-10-0154). Labour force rates (Ontario aggregate) are computed from the LFS Public Use Microdata File. The labour rate is a cross-sectional aggregate shown as a reference line."
+    description: 'Loading…'
   };
 
   public componentDidMount(): void {
@@ -75,25 +91,126 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
     }
   }
 
+  /**
+   * Keep the long published annual series, then attach PUMF calendar-year rows only for years
+   * beyond the latest published year (or years absent from published). Avoids replacing 2006–2024
+   * with a single recent PUMF year on the chart.
+   */
+  private static mergePublishedAndPumfAnnual(
+    published: LabourRatesByYear[],
+    pumf: LabourRatesByYear[]
+  ): LabourRatesByYear[] {
+    if (published.length === 0) return [...pumf].sort((a, b) => a.year - b.year);
+    if (pumf.length === 0) return [...published].sort((a, b) => a.year - b.year);
+
+    const pubYears = new Set(published.map((r) => r.year));
+    const maxPubYear = Math.max(...published.map((r) => r.year));
+
+    const map = new Map<number, LabourRatesByYear>();
+    for (const r of published) map.set(r.year, { ...r });
+    for (const r of pumf) {
+      if (r.year > maxPubYear || !pubYears.has(r.year)) {
+        map.set(r.year, { ...r });
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.year - b.year);
+  }
+
+  /**
+   * Linearly interpolate null labour values between the nearest non-null neighbours on the housing year axis.
+   */
+  private static interpolateLabourSeries(
+    values: (number | null)[]
+  ): { values: (number | null)[]; interpolated: boolean[] } {
+    const out = [...values];
+    const interpolated = out.map(() => false);
+    for (let i = 0; i < out.length; i++) {
+      if (out[i] != null) continue;
+      let p = i - 1;
+      while (p >= 0 && out[p] == null) p--;
+      let n = i + 1;
+      while (n < out.length && out[n] == null) n++;
+      if (p >= 0 && n < out.length && out[p] != null && out[n] != null) {
+        const span = n - p;
+        const step = (out[n]! - out[p]!) / span;
+        for (let j = p + 1; j < n; j++) {
+          out[j] = out[p]! + step * (j - p);
+          interpolated[j] = true;
+        }
+      }
+    }
+    return { values: out, interpolated };
+  }
+
   private readonly fetchData = async (): Promise<void> => {
     try {
-      const [housingRes, labourRes] = await Promise.all([
-        fetch('/api/housingStats'),
-        fetch('/api/labourMarket')
+      const housingRes = await fetch('/api/housingStats');
+      if (!housingRes.ok) throw new Error(`Housing API: HTTP ${housingRes.status}`);
+
+      const [pumfRes, publishedRes] = await Promise.all([
+        fetch('/api/labourOntarioAnnualFromPumf'),
+        fetch('/api/labourRatesByYear'),
       ]);
 
-      if (!housingRes.ok) throw new Error(`Housing API: HTTP ${housingRes.status}`);
-      if (!labourRes.ok) throw new Error(`Labour API: HTTP ${labourRes.status}`);
-
       const housingData = await housingRes.json();
-      const labourData = await labourRes.json();
-
       const housingByYear = this.aggregateHousingByYear(housingData);
-      const labourRates = this.computeOntarioRates(labourData);
+
+      let published: LabourRatesByYear[] = [];
+      if (publishedRes.ok) {
+        const pub = await publishedRes.json();
+        if (Array.isArray(pub) && pub.length > 0) {
+          published = pub.map((r: Record<string, unknown>) => ({
+            year: r.year as number,
+            employmentRate: r.employmentRate as number,
+            unemploymentRate: r.unemploymentRate as number,
+            participationRate: r.participationRate as number,
+          }));
+        }
+      }
+
+      let pumf: LabourRatesByYear[] = [];
+      if (pumfRes.ok) {
+        const raw = await pumfRes.json();
+        if (Array.isArray(raw) && raw.length > 0) {
+          pumf = raw.map((r: Record<string, unknown>) => ({
+            year: r.year as number,
+            employmentRate: r.employmentRate as number,
+            unemploymentRate: r.unemploymentRate as number,
+            participationRate: r.participationRate as number,
+            monthsAveraged: r.monthsAveraged as number | undefined,
+            partialYear: r.partialYear as boolean | undefined,
+          }));
+        }
+      }
+
+      /** Published baseline; PUMF rows apply only for years after the latest published year (or years missing from published). */
+      const labourByYear = LabourForceStats.mergePublishedAndPumfAnnual(published, pumf);
+
+      let description = '';
+      if (published.length > 0 && pumf.length > 0) {
+        description =
+          'Housing starts for Toronto are from Statistics Canada (table 34-10-0154). Ontario labour rates combine published annual LFS summary (StatCan 14100393) through the latest official year with PUMF-derived calendar-year averages for later years (partial-year when fewer than 12 survey months are loaded). Any calendar year on this chart that falls between those anchors but has no direct estimate is filled by linear interpolation for display only (see tooltip).';
+      } else if (pumf.length > 0) {
+        description =
+          'Housing starts for Toronto are from Statistics Canada (table 34-10-0154). Ontario employment, unemployment, and participation rates are derived from LFS PUMF microdata: for each calendar year we average the monthly rates from every survey wave you have loaded (a rolling mean when fewer than 12 months exist for that year; see partialYear in the API).';
+      } else if (published.length > 0) {
+        description =
+          'Housing starts for Toronto are from Statistics Canada (table 34-10-0154). Ontario labour rates by year use published annual LFS summary data (StatCan product 14100393). Ingest LFS PUMF months to extend past the latest published annual year.';
+      }
+
+      if (description) {
+        description +=
+          " Labour rates are from Statistics Canada's Labour Force Survey, a sample survey of households: sampling variability, revisions, and (on this chart) blending sources or interpolating missing years can make year-to-year movement look sharper or more dramatic than a single smooth official series would suggest.";
+      }
+
+      if (labourByYear.length === 0) {
+        throw new Error('No Ontario labour rate time series (load PUMF and/or annual summary via ingester)');
+      }
 
       this.setState({
         housingByYear,
-        labourRates,
+        labourByYear,
+        description,
         loading: false,
         error: null,
         chartKey: Date.now()
@@ -122,28 +239,6 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
     return Object.values(byYear).sort((a, b) => a.year - b.year);
   }
 
-  private computeOntarioRates(records: any[]): LabourRates {
-    let employed = 0;
-    let unemployed = 0;
-    let notInLF = 0;
-
-    for (const r of records) {
-      if (r.province !== 35) continue;
-      if (r.labourForceStatus === 1) employed++;
-      else if (r.labourForceStatus === 2) unemployed++;
-      else if (r.labourForceStatus === 3) notInLF++;
-    }
-
-    const labourForce = employed + unemployed;
-    const total = employed + unemployed + notInLF;
-
-    return {
-      employmentRate: labourForce > 0 ? (employed / labourForce) * 100 : 0,
-      unemploymentRate: labourForce > 0 ? (unemployed / labourForce) * 100 : 0,
-      participationRate: total > 0 ? (labourForce / total) * 100 : 0,
-    };
-  }
-
   private readonly handleMetricChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
     this.setState({
       selectedMetric: event.target.value as 'employment' | 'unemployment' | 'participation',
@@ -159,15 +254,29 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
   };
 
   private readonly getChartData = (): any => {
-    const { housingByYear, labourRates, selectedMetric, selectedHousingType } = this.state;
+    const { housingByYear, labourByYear, selectedMetric, selectedHousingType } = this.state;
 
     const labels = housingByYear.map(h => String(h.year));
 
-    const labourValue = {
-      employment: labourRates.employmentRate,
-      unemployment: labourRates.unemploymentRate,
-      participation: labourRates.participationRate,
-    }[selectedMetric];
+    const rateMap = new Map<number, LabourRatesByYear>(
+      labourByYear.map((r) => [r.year, r])
+    );
+
+    const rawLabour = housingByYear.map((h) => {
+      const row = rateMap.get(h.year);
+      if (!row) return null;
+      switch (selectedMetric) {
+        case 'employment':
+          return row.employmentRate;
+        case 'unemployment':
+          return row.unemploymentRate;
+        default:
+          return row.participationRate;
+      }
+    });
+
+    const { values: labourSeries, interpolated } = LabourForceStats.interpolateLabourSeries(rawLabour);
+    this.chartLabourInterpolated = interpolated;
 
     const labourLabel = {
       employment: 'Employment Rate — Ontario (%)',
@@ -189,30 +298,46 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
       multiUnit: 'Multi-Unit Starts — Toronto',
     }[selectedHousingType];
 
+    const labourStroke = CHART_COLORS[1]?.solid ?? 'rgba(43, 155, 218, 1)';
+    const housingStroke = CHART_COLORS[2]?.solid ?? 'rgba(255, 99, 132, 1)';
+    const housingFill = CHART_COLORS[2]?.fill ?? 'rgba(255, 99, 132, 0.12)';
+    const { darkMode } = this.props;
+    const pointFillLabour = darkMode ? 'rgba(15, 17, 22, 0.95)' : '#ffffff';
+
     return {
       labels,
       datasets: [
         {
           label: labourLabel,
-          data: labels.map(() => labourValue),
-          borderColor: 'rgba(54, 162, 235, 1)',
-          backgroundColor: 'rgba(54, 162, 235, 0.1)',
+          data: labourSeries,
+          borderColor: labourStroke,
+          backgroundColor: labourStroke,
           yAxisID: 'y',
           fill: false,
-          tension: 0,
-          borderDash: [6, 4],
-          pointRadius: 0,
+          tension: 0.18,
+          borderDash: [7, 5],
+          borderWidth: 2.5,
+          pointRadius: 3.5,
+          pointHoverRadius: 8,
+          pointBackgroundColor: pointFillLabour,
+          pointBorderColor: labourStroke,
+          pointBorderWidth: 2,
+          spanGaps: true,
         },
         {
           label: housingLabel,
           data: housingMetric,
-          borderColor: 'rgba(255, 99, 132, 1)',
-          backgroundColor: 'rgba(255, 99, 132, 0.15)',
+          borderColor: housingStroke,
+          backgroundColor: housingFill,
           yAxisID: 'y1',
           fill: true,
-          tension: 0.4,
-          pointRadius: 4,
-          pointHoverRadius: 6,
+          tension: 0.28,
+          borderWidth: 2.5,
+          pointRadius: 3.5,
+          pointHoverRadius: 8,
+          pointBackgroundColor: pointFillLabour,
+          pointBorderColor: housingStroke,
+          pointBorderWidth: 2,
         }
       ]
     };
@@ -234,46 +359,65 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
       multiUnit: 'Multi-Unit Housing Starts'
     }[selectedHousingType];
 
-    const laborForceAxisRange = {
-      employment: { min: 50, max: 100 },
-      unemployment: { min: 0, max: 20 },
-      participation: { min: 50, max: 100 }
-    }[selectedMetric];
+    // Full 0–100% scale so movement is not exaggerated by a zoomed band
+    const laborForceAxisRange = { min: 0, max: 100 };
+
+    const sans = CHART_DISPLAY_SANS;
+    const muted = chartTextColor(darkMode);
 
     return {
       responsive: true,
       maintainAspectRatio: false,
-      interaction: { mode: 'index', intersect: false },
+      interaction: { mode: 'index' as const, intersect: false },
       plugins: {
+        labourHousingPlotWash: { darkMode },
         title: {
           display: true,
-          text: `${laborForceAxisLabel} vs ${housingAxisLabel} — Toronto`,
-          font: { size: 16, weight: 'bold', family: CHART_FONT_FAMILY },
+          text: [
+            `${laborForceAxisLabel} vs ${housingAxisLabel}`,
+            'Toronto housing (units) · Ontario labour rate (%)',
+          ],
+          font: {
+            size: 17,
+            family: sans,
+            weight: '600',
+            lineHeight: 1.35,
+          },
           color: chartTitleColor(darkMode),
-          padding: { bottom: 16 },
+          padding: { top: 4, bottom: 18 },
         },
         legend: {
+          position: 'bottom' as const,
+          align: 'start' as const,
           labels: {
-            color: chartTextColor(darkMode),
-            font: { family: CHART_FONT_FAMILY, size: 12 },
+            color: muted,
+            font: { family: sans, size: 11, weight: '500' },
             usePointStyle: true,
-            padding: 16,
-          }
+            pointStyle: 'line' as const,
+            padding: 10,
+            boxWidth: 28,
+            boxHeight: 10,
+          },
         },
         tooltip: {
+          ...chartTooltipPluginOptions(darkMode),
           callbacks: {
             label: (ctx: any) => {
               let label = ctx.dataset.label || '';
               if (label) label += ': ';
               if (ctx.datasetIndex === 0) {
-                label += ctx.parsed.y.toFixed(1) + '%';
+                const y = ctx.parsed.y;
+                label += y == null ? 'n/a' : Number(y).toFixed(1) + '%';
+                if (y != null && this.chartLabourInterpolated[ctx.dataIndex]) {
+                  label += ' (interpolated)';
+                }
               } else {
                 label += ctx.parsed.y.toLocaleString();
               }
               return label;
-            }
-          }
-        }
+            },
+          },
+        },
       },
       scales: {
         x: {
@@ -282,10 +426,11 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
           title: {
             display: true,
             text: 'Year',
-            font: { weight: 'bold', family: CHART_FONT_FAMILY },
-            color: chartTextColor(darkMode),
+            font: { weight: '600', family: sans, size: 12 },
+            color: muted,
+            padding: { top: 10 },
           },
-          ticks: { color: chartTextColor(darkMode), font: { family: CHART_FONT_FAMILY, size: 11 } }
+          ticks: { color: muted, font: { family: sans, size: 11, weight: '500' }, maxRotation: 0 },
         },
         y: {
           type: 'linear',
@@ -293,18 +438,20 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
           position: 'left',
           min: laborForceAxisRange.min,
           max: laborForceAxisRange.max,
+          beginAtZero: true,
           grid: { color: chartGridColor(darkMode), drawBorder: false },
           title: {
             display: true,
             text: laborForceAxisLabel,
-            font: { weight: 'bold', family: CHART_FONT_FAMILY },
-            color: chartTextColor(darkMode),
+            font: { weight: '600', family: sans, size: 12 },
+            color: muted,
+            padding: { bottom: 8 },
           },
           ticks: {
-            color: chartTextColor(darkMode),
-            font: { family: CHART_FONT_FAMILY, size: 11 },
-            callback: (value: any) => `${value}%`
-          }
+            color: muted,
+            font: { family: sans, size: 11 },
+            callback: (value: any) => `${value}%`,
+          },
         },
         y1: {
           type: 'linear',
@@ -314,16 +461,17 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
           title: {
             display: true,
             text: housingAxisLabel,
-            font: { weight: 'bold', family: CHART_FONT_FAMILY },
-            color: chartTextColor(darkMode),
+            font: { weight: '600', family: sans, size: 12 },
+            color: muted,
+            padding: { bottom: 8 },
           },
           ticks: {
-            color: chartTextColor(darkMode),
-            font: { family: CHART_FONT_FAMILY, size: 11 },
-            callback: (v: any) => v.toLocaleString()
-          }
+            color: muted,
+            font: { family: sans, size: 11 },
+            callback: (v: any) => v.toLocaleString(),
+          },
         },
-      }
+      },
     };
   };
 
@@ -367,7 +515,14 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
         <div className="chart-container flex-1 w-full">
           {error && <div className="error-banner bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
 
-          <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
+          <p
+            className={`text-xs tracking-wide uppercase mb-3 max-w-[900px] mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}
+            style={{ fontFamily: CHART_DISPLAY_SANS }}
+          >
+            StatCan tables · Published annual labour + PUMF where loaded · Interpolation noted in tooltip
+          </p>
+
+          <div className="mb-4 flex flex-wrap gap-4 items-center justify-between max-w-[900px] mx-auto">
             <div className="flex flex-wrap gap-4">
               <div>
                 <label htmlFor="metric-select" className={`block text-sm font-medium mb-1 ${darkMode ? 'text-white' : 'text-gray-700'}`}>
@@ -403,7 +558,14 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
             </div>
           </div>
 
-          <div style={{ height: '400px', width: '100%', maxWidth: '900px', margin: '0 auto' }}>
+          <div
+            className={`labour-housing-chart-panel max-w-[900px] mx-auto rounded-2xl border p-5 md:p-6 ${
+              darkMode
+                ? 'border-white/[0.08] bg-[linear-gradient(165deg,rgba(255,255,255,0.04)_0%,transparent_45%)] shadow-[0_24px_48px_-24px_rgba(0,0,0,0.65)]'
+                : 'border-[var(--color-border)] bg-white/60 shadow-[0_20px_40px_-28px_rgba(30,58,74,0.18)]'
+            }`}
+            style={{ height: '460px', width: '100%' }}
+          >
             <Line
               key={chartKey}
               data={this.getChartData()}
@@ -412,12 +574,18 @@ class LabourForceStats extends Component<LabourForceStatsProps, LabourForceStats
             />
           </div>
 
-          <div className="mt-4">
-            <label htmlFor="chart-description" className={`chart-section-label block font-semibold mb-2 text-xl ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}>
-              Data Summary
+          <div className="mt-5 max-w-[900px] mx-auto">
+            <label
+              htmlFor="labour-housing-chart-description"
+              className={`chart-section-label block font-semibold mb-2 text-lg tracking-tight ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}
+              style={{ fontFamily: CHART_DISPLAY_SANS }}
+            >
+              Data summary
             </label>
             <div
-              className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg text-area-styled ${darkMode ? 'bg-transparent text-white' : 'bg-white/50 text-[var(--color-primary-dark)]'}`}
+              id="labour-housing-chart-description"
+              className={`w-full p-4 border rounded-xl text-[15px] leading-relaxed ${darkMode ? 'border-white/[0.1] bg-white/[0.03] text-slate-200' : 'border-[var(--color-border)] bg-white/80 text-[var(--color-primary-dark)]'}`}
+              style={{ fontFamily: CHART_DISPLAY_SANS }}
             >
               {description}
             </div>

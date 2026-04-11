@@ -24,14 +24,45 @@ vi.mock('chart.js', () => ({
   Filler: {}
 }));
 
+/** Minimal aggregated rows so the chart skips the raw /api/labourMarket fallback (Node fetch needs absolute URLs). */
+const mockProvinceEducationRates = [
+  { province: 10, educationLevel: 0, employmentRatePercent: 18 },
+  { province: 10, educationLevel: 5, employmentRatePercent: 62 },
+  { province: 35, educationLevel: 0, employmentRatePercent: 20 },
+  { province: 35, educationLevel: 5, employmentRatePercent: 68 },
+];
+
 describe('LineChartEmployment Component', () => {
   const mockProps = {
-    showByEducation: true
+    darkMode: false,
   };
 
+  const originalFetch = globalThis.fetch;
+
   beforeEach(() => {
-    // Reset mocks
     vi.clearAllMocks();
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url =
+        typeof input === 'string'
+          ? input
+          : input instanceof Request
+            ? input.url
+            : String(input);
+      if (url.includes('labourEmploymentRatesByProvinceEducation')) {
+        return {
+          ok: true,
+          json: async () => mockProvinceEducationRates,
+        } as Response;
+      }
+      return {
+        ok: true,
+        json: async () => [],
+      } as Response;
+    }) as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
   });
 
   it('renders the chart after data is loaded', async () => {
@@ -58,7 +89,7 @@ describe('LineChartEmployment Component', () => {
     expect(screen.getByText(/Data Summary/i)).toBeInTheDocument();
     
     // Check for content in the summary box
-    const summaryText = screen.getByText(/employment rates based on education level/i);
+    const summaryText = screen.getByText(/Each coloured line is one education category/i);
     expect(summaryText).toBeInTheDocument();
   });
 

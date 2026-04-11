@@ -2,10 +2,17 @@ import React, { Component } from 'react';
 import { Bar } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend } from 'chart.js';
 import { MonthlyData, fetchProcessedHousingData } from '../services/HousingDataService';
-import { CHART_FONT_FAMILY, chartGridColor, chartTextColor, chartTitleColor } from '../chartTheme';
+import {
+    CHART_DISPLAY_SANS,
+    HOUSING_BAR_CITY_COLORS,
+    chartGridColor,
+    chartTextColor,
+    chartTitleColor,
+    chartTooltipPluginOptions,
+    housingBarPlotWashPlugin,
+} from '../chartTheme';
 
-// Register required Chart.js components
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, housingBarPlotWashPlugin);
 
 
 interface HousingChartState {
@@ -128,18 +135,105 @@ class HousingChart extends Component<HousingChartProps, HousingChartState> {
                 {
                     label: 'Toronto',
                     data: data.map(item => item.toronto || 0),
-                    backgroundColor: 'rgba(0, 255, 247, 0.5)',
-                    borderColor: 'rgba(0, 255, 247, 1)',
-                    borderWidth: 1,
+                    backgroundColor: HOUSING_BAR_CITY_COLORS.toronto.fill,
+                    borderColor: HOUSING_BAR_CITY_COLORS.toronto.stroke,
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
                 },
                 {
                     label: 'Hamilton',
                     data: data.map(item => item.hamilton || 0),
-                    backgroundColor: 'rgba(0, 65, 187, 0.5)',
-                    borderColor: 'rgba(0, 65, 187, 1)',
-                    borderWidth: 1,
+                    backgroundColor: HOUSING_BAR_CITY_COLORS.hamilton.fill,
+                    borderColor: HOUSING_BAR_CITY_COLORS.hamilton.stroke,
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    borderSkipped: false,
                 }
             ],
+        };
+    };
+
+    private readonly getBarOptions = (): any => {
+        const { darkMode } = this.props;
+        const { showCompletions, selectedMonth } = this.state;
+        const sans = CHART_DISPLAY_SANS;
+        const muted = chartTextColor(darkMode);
+
+        const yAxisTitle = showCompletions ? 'Housing completions (units)' : 'Housing starts (units)';
+        const titleLines =
+            showCompletions
+                ? selectedMonth === null
+                    ? ['Housing completions by month', 'Toronto & Hamilton']
+                    : ['Housing completions — selected month', 'Toronto & Hamilton']
+                : selectedMonth === null
+                  ? ['Housing starts by month', 'Toronto & Hamilton']
+                  : ['Housing starts — selected month', 'Toronto & Hamilton'];
+
+        return {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index' as const, intersect: false },
+            plugins: {
+                housingBarPlotWash: { darkMode },
+                title: {
+                    display: true,
+                    text: titleLines,
+                    font: {
+                        size: 17,
+                        family: sans,
+                        weight: '600',
+                        lineHeight: 1.35,
+                    },
+                    color: chartTitleColor(darkMode),
+                    padding: { top: 4, bottom: 18 },
+                },
+                legend: {
+                    position: 'bottom' as const,
+                    align: 'start' as const,
+                    labels: {
+                        font: { size: 11, family: sans, weight: '500' },
+                        color: muted,
+                        usePointStyle: true,
+                        pointStyle: 'rect' as const,
+                        padding: 10,
+                        boxWidth: 10,
+                        boxHeight: 10,
+                    },
+                },
+                tooltip: {
+                    ...chartTooltipPluginOptions(darkMode),
+                    callbacks: {
+                        label: (ctx: { dataset: { label?: string }; raw: number }) =>
+                            `${ctx.dataset.label ?? ''}: ${Number(ctx.raw).toLocaleString()}`,
+                    },
+                },
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: chartGridColor(darkMode), drawBorder: false },
+                    title: {
+                        display: true,
+                        text: yAxisTitle,
+                        font: { size: 12, family: sans, weight: '600' },
+                        color: muted,
+                        padding: { bottom: 8 },
+                    },
+                    ticks: { color: muted, font: { family: sans, size: 11 } },
+                },
+                x: {
+                    grid: { color: chartGridColor(darkMode), drawBorder: false },
+                    title: {
+                        display: true,
+                        text: 'Month',
+                        font: { size: 12, family: sans, weight: '600' },
+                        color: muted,
+                        padding: { top: 10 },
+                    },
+                    ticks: { color: muted, font: { family: sans, size: 11, weight: '500' }, maxRotation: 0 },
+                },
+            },
         };
     };
 
@@ -179,21 +273,6 @@ class HousingChart extends Component<HousingChartProps, HousingChartState> {
                 </div>
             );
         }
-        let chartTitle;
-        let yAxisTitle;
-
-        if (showCompletions) {
-            chartTitle = selectedMonth === null
-                ? 'All Months Housing Completions Comparison'
-                : 'Monthly Housing Completions Comparison';
-            yAxisTitle = 'Number of Housing Completions';
-        } else {
-            chartTitle = selectedMonth === null
-                ? 'All Months Housing Starts Comparison'
-                : 'Monthly Housing Starts Comparison';
-            yAxisTitle = 'Number of Housing Starts';
-        }
-
         // Convert month numbers to names for the dropdown
         const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
             'July', 'August', 'September', 'October', 'November', 'December'];
@@ -204,7 +283,14 @@ class HousingChart extends Component<HousingChartProps, HousingChartState> {
                 <div className="chart-container flex-1 w-full">
                     {error && <div className="error-banner bg-red-100 text-red-700 p-2 rounded mb-4">{error}</div>}
 
-                    <div className="mb-4 flex flex-wrap gap-4 items-center justify-between">
+                    <p
+                        className={`text-xs tracking-wide uppercase mb-3 max-w-[900px] mx-auto ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}
+                        style={{ fontFamily: CHART_DISPLAY_SANS }}
+                    >
+                        CMHC-style census · Toronto & Hamilton · Year & month filters
+                    </p>
+
+                    <div className="mb-4 flex flex-wrap gap-4 items-center justify-between max-w-[900px] mx-auto">
                         <button
                             onClick={this.props.onToggleView}
                             className="toggle-btn"
@@ -245,72 +331,37 @@ class HousingChart extends Component<HousingChartProps, HousingChartState> {
                         </div>
                     </div>
 
-                    <div style={{ height: '400px', width: '100%' }}>
+                    <div
+                        className={`housing-bar-chart-panel max-w-[900px] mx-auto rounded-2xl border p-5 md:p-6 ${
+                            darkMode
+                                ? 'border-white/[0.08] bg-[linear-gradient(165deg,rgba(255,255,255,0.04)_0%,transparent_45%)] shadow-[0_24px_48px_-24px_rgba(0,0,0,0.65)]'
+                                : 'border-[var(--color-border)] bg-white/60 shadow-[0_20px_40px_-28px_rgba(30,58,74,0.18)]'
+                        }`}
+                        style={{ height: '460px', width: '100%' }}
+                    >
                         <Bar
                             key={chartKey}
                             data={this.getChartData()}
-                            options={{
-                                responsive: true,
-                                maintainAspectRatio: false,
-                                plugins: {
-                                    title: {
-                                        display: true,
-                                        text: chartTitle,
-                                        font: { size: 18, family: CHART_FONT_FAMILY, weight: 'bold' },
-                                        color: chartTitleColor(darkMode),
-                                        padding: { bottom: 16 },
-                                    },
-                                    legend: {
-                                        display: true,
-                                        position: 'top',
-                                        labels: {
-                                            color: chartTextColor(darkMode),
-                                            font: { family: CHART_FONT_FAMILY, size: 12 },
-                                            usePointStyle: true,
-                                            padding: 16,
-                                        }
-                                    }
-                                },
-                                scales: {
-                                    y: {
-                                        beginAtZero: true,
-                                        grid: { color: chartGridColor(darkMode), drawBorder: false },
-                                        title: {
-                                            display: true,
-                                            text: yAxisTitle,
-                                            font: { size: 14, family: CHART_FONT_FAMILY, weight: 'normal' },
-                                            color: chartTextColor(darkMode),
-                                        },
-                                        ticks: { color: chartTextColor(darkMode), font: { family: CHART_FONT_FAMILY, size: 11 } },
-                                    },
-                                    x: {
-                                        grid: { color: chartGridColor(darkMode), drawBorder: false },
-                                        title: {
-                                            display: true,
-                                            text: 'Month',
-                                            font: { size: 14, family: CHART_FONT_FAMILY, weight: 'normal' },
-                                            color: chartTextColor(darkMode),
-                                        },
-                                        ticks: { color: chartTextColor(darkMode), font: { family: CHART_FONT_FAMILY, size: 11 } },
-                                    },
-                                },
-                            }}
+                            options={this.getBarOptions()}
                             id="chart-container"
                         />
                     </div>
 
-                    {/* Description Box */}
-                    <div className="mt-4">
-                        <label htmlFor="chart-description" className={`chart-section-label block font-semibold mb-2 text-xl ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}>
-                            Data Summary
+                    <div className="mt-5 max-w-[900px] mx-auto">
+                        <label
+                            htmlFor="chart-description"
+                            className={`chart-section-label block font-semibold mb-2 text-lg tracking-tight ${darkMode ? 'text-white' : 'text-[var(--color-primary-dark)]'}`}
+                            style={{ fontFamily: CHART_DISPLAY_SANS }}
+                        >
+                            Data summary
                         </label>
-                        <textarea
+                        <div
                             id="chart-description"
-                            className={`w-full p-3 border-2 border-[var(--color-border)] rounded-lg resize-none text-area-styled ${darkMode ? 'bg-transparent text-white' : 'bg-white/50 text-[var(--color-primary-dark)]'}`}
-                            rows={5}
-                            value={description}
-                            readOnly
-                        />
+                            className={`w-full p-4 border rounded-xl text-[15px] leading-relaxed ${darkMode ? 'border-white/[0.1] bg-white/[0.03] text-slate-200' : 'border-[var(--color-border)] bg-white/80 text-[var(--color-primary-dark)]'}`}
+                            style={{ fontFamily: CHART_DISPLAY_SANS }}
+                        >
+                            {description}
+                        </div>
                     </div>
                 </div>
 

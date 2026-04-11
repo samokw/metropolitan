@@ -25,7 +25,8 @@ vi.mock('chart.js', () => ({
 describe('DoubleBarChart Component', () => {
   const mockProps = {
     showCompletions: false,
-    onToggleView: vi.fn()
+    onToggleView: vi.fn(),
+    darkMode: false,
   };
   
   const mockHousingData = [
@@ -84,7 +85,7 @@ describe('DoubleBarChart Component', () => {
     });
     
     // Verify filter exists
-    const filterElement = screen.getByLabelText(/Filter by Month:/i);
+    const filterElement = screen.getByLabelText(/^Month:$/i);
     expect(filterElement).toBeInTheDocument();
     expect(filterElement.tagName.toLowerCase()).toBe('select');
   });

@@ -33,7 +33,7 @@ class HousingDataControllerTest {
     @Test
     void testGetDataById() {
         Integer id = 1;
-        Data mockData = new Data(id, "TestArea", 100, 50, 3, 20, 15, 10, 5, 18, 14, 9, 4);
+        Data mockData = new Data(id, "TestArea", 100, 50, 3, 2024, 20, 15, 10, 5, 18, 14, 9, 4);
         when(dataService.getData(id)).thenReturn(mockData);
 
         ResponseEntity<Data> response = housingDataController.getData(id);
@@ -58,8 +58,8 @@ class HousingDataControllerTest {
     @Test
     void testGetAllData() {
         List<Data> mockDataList = Arrays.asList(
-                new Data(1, "Area1", 100, 50, 3, 20, 15, 10, 5, 18, 14, 9, 4),
-                new Data(2, "Area2", 200, 80, 4, 30, 25, 20, 15, 28, 24, 19, 14)
+                new Data(1, "Area1", 100, 50, 3, 2024, 20, 15, 10, 5, 18, 14, 9, 4),
+                new Data(2, "Area2", 200, 80, 4, 2024, 30, 25, 20, 15, 28, 24, 19, 14)
         );
         when(dataService.allData()).thenReturn(mockDataList);
 
