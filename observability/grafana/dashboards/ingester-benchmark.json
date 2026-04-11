@@ -1,0 +1,184 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "title": "Load Duration — per_row vs bulk (seconds)",
+      "description": "How long each strategy took to load the full dataset. Lower is better.",
+      "type": "barchart",
+      "gridPos": { "h": 10, "w": 14, "x": 0, "y": 0 },
+      "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+          "rawSql": "SELECT CONCAT(source, ' — ', strategy) AS metric, duration_seconds AS duration FROM pipeline_runs WHERE strategy IN ('per_row', 'bulk') ORDER BY source, FIELD(strategy, 'per_row', 'bulk')",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "scheme"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "barWidth": 0.6,
+        "groupWidth": 0.7
+      }
+    },
+    {
+      "id": 2,
+      "title": "Speedup (x faster)",
+      "description": "Bulk duration divided into per-row duration. Higher = bigger improvement.",
+      "type": "stat",
+      "gridPos": { "h": 10, "w": 10, "x": 14, "y": 0 },
+      "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+          "rawSql": "SELECT CONCAT(old_runs.source, ' speedup') AS metric, ROUND(old_runs.duration_seconds / NULLIF(new_runs.duration_seconds, 0), 1) AS value FROM (SELECT source, duration_seconds FROM pipeline_runs WHERE strategy = 'per_row' ORDER BY run_at DESC LIMIT 2) AS old_runs INNER JOIN (SELECT source, duration_seconds FROM pipeline_runs WHERE strategy = 'bulk' ORDER BY run_at DESC LIMIT 2) AS new_runs ON old_runs.source = new_runs.source",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              { "color": "yellow", "value": null },
+              { "color": "green", "value": 10 },
+              { "color": "dark-green", "value": 50 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "justifyMode": "center"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Throughput — Records Loaded per Second",
+      "description": "How many rows each strategy inserts per second. Higher is better.",
+      "type": "barchart",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 10 },
+      "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+          "rawSql": "SELECT CONCAT(source, ' — ', strategy) AS metric, ROUND(records_loaded / NULLIF(duration_seconds, 0), 0) AS rows_per_sec FROM pipeline_runs WHERE strategy IN ('per_row', 'bulk') ORDER BY source, FIELD(strategy, 'per_row', 'bulk')",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "scheme"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "showValue": "always",
+        "barWidth": 0.6,
+        "groupWidth": 0.7
+      }
+    },
+    {
+      "id": 4,
+      "title": "All Pipeline Runs — Duration Over Time",
+      "description": "Every pipeline run plotted over time. You can see the moment the strategy switched from slow per-row to fast bulk.",
+      "type": "timeseries",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+          "rawSql": "SELECT run_at AS time, duration_seconds AS value, CONCAT(source, ' / ', COALESCE(strategy, 'bulk')) AS metric FROM pipeline_runs ORDER BY run_at",
+          "format": "time_series",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 15,
+            "pointSize": 8,
+            "showPoints": "always",
+            "spanNulls": false
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Run History",
+      "description": "Raw details of every pipeline run.",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 30 },
+      "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+      "targets": [
+        {
+          "datasource": { "type": "mysql", "uid": "metropolitan-mariadb" },
+          "rawSql": "SELECT source, COALESCE(strategy, 'bulk') AS strategy, records_loaded, ROUND(records_loaded / NULLIF(duration_seconds, 0), 0) AS rows_per_sec, duration_seconds, error_count, run_at FROM pipeline_runs ORDER BY run_at DESC LIMIT 20",
+          "format": "table",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "duration_seconds" },
+            "properties": [{ "id": "unit", "value": "s" }]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "run_at", "desc": true }]
+      }
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["metropolitan", "ingester", "benchmark"],
+  "templating": { "list": [] },
+  "time": { "from": "now-7d", "to": "now" },
+  "title": "Ingester Load Strategy Benchmark",
+  "uid": "ingester-benchmark",
+  "version": 2
+}
