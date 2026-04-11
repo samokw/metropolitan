@@ -13,13 +13,15 @@ class HousingData:
         self, jsonid,
         census_metropolitan_area, month, total_starts, total_complete,
         singles_starts, semis_starts, row_starts, apartment_starts,
-        singles_complete, semis_complete, row_complete, apartment_complete
+        singles_complete, semis_complete, row_complete, apartment_complete,
+        year=0
     ):
         self.__jsonid = jsonid
         self.__census_metropolitan_area = census_metropolitan_area
         self.__total_starts = total_starts
         self.__total_complete = total_complete
         self.__month = month
+        self.__year = year
         self.__singles_starts = singles_starts
         self.__semis_starts = semis_starts
         self.__row_starts = row_starts
@@ -38,6 +40,11 @@ class HousingData:
     def census_metropolitan_area(self):
         """str: Gets the census metropolitan area."""
         return self.__census_metropolitan_area
+
+    @property
+    def year(self):
+        """int: Gets the year."""
+        return self.__year
 
     @property
     def month(self):
@@ -104,6 +111,11 @@ class HousingData:
         """Set the census metropolitan area."""
         self.__census_metropolitan_area = value
 
+    @year.setter
+    def year(self, value):
+        """Set the year."""
+        self.__year = value
+
     @month.setter
     def month(self, value):
         """Set the month."""
@@ -164,6 +176,7 @@ class HousingData:
         return (
             f"jsonid={self.__jsonid!r}, "
             f"HousingData(census_metropolitan_area={self.__census_metropolitan_area!r}, "
+            f"year={self.__year!r}, "
             f"month={self.__month!r}, "
             f"total_starts={self.__total_starts!r}, "
             f"total_complete={self.__total_complete!r}, "

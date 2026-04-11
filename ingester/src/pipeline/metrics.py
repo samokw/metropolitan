@@ -14,6 +14,7 @@ class PipelineMetrics:
     """Tracks record counts, data volume, and timing for a pipeline run."""
 
     source: str = ""
+    strategy: str = "bulk"
     records_extracted: int = 0
     records_transformed: int = 0
     records_loaded: int = 0
@@ -47,6 +48,7 @@ class PipelineMetrics:
         """Return a dict suitable for structured logging or DB storage."""
         return {
             "source": self.source,
+            "strategy": self.strategy,
             "records_extracted": self.records_extracted,
             "records_transformed": self.records_transformed,
             "records_loaded": self.records_loaded,

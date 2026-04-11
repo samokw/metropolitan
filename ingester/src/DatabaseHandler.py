@@ -48,6 +48,7 @@ class DatabaseHandler:
         """
         self.create_housing_data_table()
         self.create_labour_market_data_table()
+        self.create_lfs_ontario_annual_table()
         self.create_pipeline_runs_table()
 
     def create_pipeline_runs_table(self):
@@ -70,11 +71,25 @@ class DatabaseHandler:
                     success_rate_pct DECIMAL(5,2) DEFAULT 0,
                     duration_seconds DECIMAL(8,2) DEFAULT 0,
                     error_count INT DEFAULT 0,
+                    strategy VARCHAR(20) DEFAULT 'bulk' COMMENT 'Load strategy used (bulk, per_row)',
                     run_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
             self.conn.commit()
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'pipeline_runs' "
+                "AND COLUMN_NAME = 'strategy'"
+            )
+            if cursor.fetchone()[0] == 0:
+                cursor.execute(
+                    "ALTER TABLE pipeline_runs ADD COLUMN "
+                    "strategy VARCHAR(20) DEFAULT 'bulk' COMMENT 'Load strategy used (bulk, per_row)' "
+                    "AFTER error_count"
+                )
+                self.conn.commit()
         except mariadb.Error as e:
             print(f"Error creating pipeline_runs table: {e}")
         finally:
@@ -93,6 +108,7 @@ class DatabaseHandler:
                     jsonid INT DEFAULT 0 COMMENT 'JSON ID',
                     census_metropolitan_area VARCHAR(255) COMMENT 'Census Metropolitan Area',
                     month INT DEFAULT NULL COMMENT 'Month',
+                    year INT DEFAULT NULL COMMENT 'Year',
                     total_starts INT DEFAULT 0 COMMENT 'Total Starts',
                     total_complete INT DEFAULT 0 COMMENT 'Total Complete',
                     singles_starts INT DEFAULT 0 COMMENT 'Singles Starts',
@@ -125,16 +141,56 @@ class DatabaseHandler:
                     jsonid INT DEFAULT 0 COMMENT 'JSON ID',
                     province INT DEFAULT 0 COMMENT 'Province',
                     education_level INT DEFAULT 0 COMMENT 'Education Level',
-                    labour_force_status INT DEFAULT 0 COMMENT 'Labour Force Status'
+                    labour_force_status INT DEFAULT 0 COMMENT 'Labour Force Status',
+                    survey_year INT DEFAULT 0 COMMENT 'LFS PUMF SURVYEAR',
+                    survey_month INT DEFAULT 0 COMMENT 'LFS PUMF SURVMNTH'
+                )
+                """
+            )
+            self.conn.commit()
+
+            migrations = [
+                ("survey_year", "INT DEFAULT 0 COMMENT 'LFS PUMF SURVYEAR'", "labour_force_status"),
+                ("survey_month", "INT DEFAULT 0 COMMENT 'LFS PUMF SURVMNTH'", "survey_year"),
+            ]
+            for col, ddl, after_col in migrations:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM information_schema.COLUMNS "
+                    "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'labour_market_data' "
+                    "AND COLUMN_NAME = ?",
+                    (col,),
+                )
+                if cursor.fetchone()[0] == 0:
+                    cursor.execute(
+                        f"ALTER TABLE labour_market_data ADD COLUMN {col} {ddl} "
+                        f"AFTER {after_col}"
+                    )
+                    self.conn.commit()
+        except mariadb.Error as e:
+            print(f"Error creating labour_market_data table: {e}")
+        finally:
+            cursor.close()
+
+    def create_lfs_ontario_annual_table(self):
+        """Annual Ontario LFS rates from StatCan summary CSV (product 14100393)."""
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS lfs_ontario_annual (
+                    `year` INT PRIMARY KEY COMMENT 'Calendar year',
+                    employment_rate DECIMAL(5,2) DEFAULT NULL COMMENT 'Employment rate %',
+                    unemployment_rate DECIMAL(5,2) DEFAULT NULL COMMENT 'Unemployment rate %',
+                    participation_rate DECIMAL(5,2) DEFAULT NULL COMMENT 'Participation rate %'
                 )
                 """
             )
             self.conn.commit()
         except mariadb.Error as e:
-            print(f"Error creating labour_market_data table: {e}")
+            print(f"Error creating lfs_ontario_annual table: {e}")
         finally:
             cursor.close()
-    
+
     # Helper function to safely convert values with potential commas
     def safe_convert(self, value):
         if value == "" or value is None:
@@ -144,138 +200,167 @@ class DatabaseHandler:
 
     def insert_housing_data(self, housing_data):
         """
-        insert_housing_data: Insert a new housing data if it doesn't exist.
+        insert_housing_data: Insert a single housing record.
+        Kept for backwards compatibility — prefer bulk_load_housing_records.
         """
         cursor = self.conn.cursor()
         try:
-
-            # Convert empty strings to integers for numeric fields
-            month = self.safe_convert(housing_data.month)
-            total_starts = self.safe_convert(housing_data.total_starts)
-            total_complete = self.safe_convert(housing_data.total_complete)
-            singles_starts = self.safe_convert(housing_data.singles_starts)
-            semis_starts = self.safe_convert(housing_data.semis_starts)
-            row_starts = self.safe_convert(housing_data.row_starts)
-            apartment_starts = self.safe_convert(housing_data.apartment_starts)
-            singles_complete = self.safe_convert(housing_data.singles_complete)
-            semis_complete = self.safe_convert(housing_data.semis_complete)
-            row_complete = self.safe_convert(housing_data.row_complete)
-            apartment_complete = self.safe_convert(housing_data.apartment_complete)
-
-            # First execute the query to check if housing data exists with all fields
             cursor.execute(
-                """SELECT id FROM housing_data 
-                WHERE jsonid = ?
-                AND census_metropolitan_area = ? 
-                AND month = ? 
-                AND total_starts = ? 
-                AND total_complete = ? 
-                AND singles_starts = ? 
-                AND semis_starts = ? 
-                AND row_starts = ? 
-                AND apartment_starts = ? 
-                AND singles_complete = ? 
-                AND semis_complete = ? 
-                AND row_complete = ? 
-                AND apartment_complete = ?""",
+                """INSERT INTO housing_data 
+                (jsonid, census_metropolitan_area, month, year, total_starts, total_complete, 
+                singles_starts, semis_starts, row_starts, apartment_starts,
+                singles_complete, semis_complete, row_complete, apartment_complete)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     housing_data.jsonid,
                     housing_data.census_metropolitan_area,
-                    month,
-                    total_starts,
-                    total_complete,
-                    singles_starts,
-                    semis_starts,
-                    row_starts,
-                    apartment_starts,
-                    singles_complete,
-                    semis_complete,
-                    row_complete,
-                    apartment_complete
+                    self.safe_convert(housing_data.month),
+                    self.safe_convert(housing_data.year),
+                    self.safe_convert(housing_data.total_starts),
+                    self.safe_convert(housing_data.total_complete),
+                    self.safe_convert(housing_data.singles_starts),
+                    self.safe_convert(housing_data.semis_starts),
+                    self.safe_convert(housing_data.row_starts),
+                    self.safe_convert(housing_data.apartment_starts),
+                    self.safe_convert(housing_data.singles_complete),
+                    self.safe_convert(housing_data.semis_complete),
+                    self.safe_convert(housing_data.row_complete),
+                    self.safe_convert(housing_data.apartment_complete),
                 )
             )
-
-            # Now we can safely call fetchone() after executing a query
-            result = cursor.fetchone()
-
-            if result is None:
-                # Insert new record if no exact match exists
-                cursor.execute(
-                    """INSERT INTO housing_data 
-                    (jsonid, census_metropolitan_area, month, total_starts, total_complete, 
-                    singles_starts, semis_starts, row_starts, apartment_starts,
-                    singles_complete, semis_complete, row_complete, apartment_complete)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        housing_data.jsonid,
-                        housing_data.census_metropolitan_area,
-                        month,
-                        total_starts,
-                        total_complete,
-                        singles_starts,
-                        semis_starts,
-                        row_starts,
-                        apartment_starts,
-                        singles_complete,
-                        semis_complete,
-                        row_complete,
-                        apartment_complete
-                    )
-                )
-                # Print detailed information including original values for debugging
-                print(f"Inserted jsonid: {housing_data.jsonid}, housing data: ")
-                self.conn.commit()
         except mariadb.Error as e:
-            print(f"Error inserting housing data: {e}")
+            raise e
+        finally:
+            cursor.close()
+
+    def bulk_load_housing_records(self, rows):
+        """
+        Replace all housing data with a fresh snapshot using TRUNCATE + batch INSERT.
+        The StatCan download always contains the full historical dataset, so a
+        complete reload is idempotent and much faster than per-row dedup.
+
+        Args:
+            rows: list of tuples matching the housing_data column order
+                  (jsonid, census_metropolitan_area, month, year,
+                   total_starts, total_complete,
+                   singles_starts, semis_starts, row_starts, apartment_starts,
+                   singles_complete, semis_complete, row_complete, apartment_complete)
+        Returns:
+            int: number of rows inserted
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute("TRUNCATE TABLE housing_data")
+
+            batch_size = 5000
+            for i in range(0, len(rows), batch_size):
+                batch = rows[i:i + batch_size]
+                cursor.executemany(
+                    """INSERT INTO housing_data
+                    (jsonid, census_metropolitan_area, month, year,
+                     total_starts, total_complete,
+                     singles_starts, semis_starts, row_starts, apartment_starts,
+                     singles_complete, semis_complete, row_complete, apartment_complete)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    batch
+                )
+            self.conn.commit()
+            return len(rows)
+        except mariadb.Error as e:
+            self.conn.rollback()
+            raise e
         finally:
             cursor.close()
 
     def insert_labour_market_data(self, labour_market_data):
         """
-        insert_labour_market_data: Insert new labour market data if it doesn't exist.
+        insert_labour_market_data: Insert a single labour market record.
+        Kept for backwards compatibility — prefer bulk_load_labour_records.
         """
         cursor = self.conn.cursor()
         try:
-            # Convert empty strings to integers for numeric fields
-            jsonid = self.safe_convert(labour_market_data.jsonid)
-            province = self.safe_convert(labour_market_data.province)
-            education_level = self.safe_convert(labour_market_data.education_level)
-            labour_force_status = self.safe_convert(labour_market_data.labour_force_status)
-    
-            # First check if this exact record already exists
             cursor.execute(
-                """SELECT id FROM labour_market_data 
-                WHERE jsonid = ?
-                AND province = ? 
-                AND education_level = ? 
-                AND labour_force_status = ?""",
+                """INSERT INTO labour_market_data 
+                (jsonid, province, education_level, labour_force_status, survey_year, survey_month)
+                VALUES (?, ?, ?, ?, ?, ?)""",
                 (
-                    jsonid,
-                    province,
-                    education_level,
-                    labour_force_status
+                    self.safe_convert(labour_market_data.jsonid),
+                    self.safe_convert(labour_market_data.province),
+                    self.safe_convert(labour_market_data.education_level),
+                    self.safe_convert(labour_market_data.labour_force_status),
+                    self.safe_convert(getattr(labour_market_data, "survey_year", 0)),
+                    self.safe_convert(getattr(labour_market_data, "survey_month", 0)),
                 )
             )
-    
-            result = cursor.fetchone()
-    
-            if result is None:
-                # Insert new record if no exact match exists
-                cursor.execute(
-                    """INSERT INTO labour_market_data 
-                    (jsonid, province, education_level, labour_force_status)
-                    VALUES (?, ?, ?, ?)""",
-                    (
-                        jsonid,
-                        province,
-                        education_level,
-                        labour_force_status
-                    )
-                )
-                # print(f"Inserted labour market data for jsonid: {jsonid}")
-                self.conn.commit()
         except mariadb.Error as e:
-            print(f"Error inserting labour market data: {e}")
+            raise e
+        finally:
+            cursor.close()
+
+    def bulk_load_labour_records(self, survey_year, survey_month, rows):
+        """
+        Replace one PUMF survey month: DELETE that wave, then batch INSERT.
+        Other survey months in the table are preserved.
+
+        Args:
+            survey_year: LFS reference year (SURVYEAR).
+            survey_month: LFS reference month (SURVMNTH).
+            rows: list of tuples (jsonid, province, education_level, labour_force_status,
+                  survey_year, survey_month)
+        Returns:
+            int: number of rows inserted
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute(
+                "DELETE FROM labour_market_data WHERE survey_year = ? AND survey_month = ?",
+                (survey_year, survey_month),
+            )
+
+            batch_size = 5000
+            for i in range(0, len(rows), batch_size):
+                batch = rows[i:i + batch_size]
+                cursor.executemany(
+                    """INSERT INTO labour_market_data
+                    (jsonid, province, education_level, labour_force_status, survey_year, survey_month)
+                    VALUES (?, ?, ?, ?, ?, ?)""",
+                    batch
+                )
+            self.conn.commit()
+            return len(rows)
+        except mariadb.Error as e:
+            self.conn.rollback()
+            raise e
+        finally:
+            cursor.close()
+
+    def bulk_load_lfs_ontario_annual(self, rows):
+        """
+        Replace Ontario annual LFS rate rows (TRUNCATE + batch INSERT).
+
+        Args:
+            rows: list of tuples (year, employment_rate, unemployment_rate, participation_rate)
+        """
+        cursor = self.conn.cursor()
+        try:
+            cursor.execute("TRUNCATE TABLE lfs_ontario_annual")
+            if not rows:
+                self.conn.commit()
+                return 0
+            batch_size = 5000
+            for i in range(0, len(rows), batch_size):
+                batch = rows[i : i + batch_size]
+                cursor.executemany(
+                    """INSERT INTO lfs_ontario_annual
+                    (`year`, employment_rate, unemployment_rate, participation_rate)
+                    VALUES (?, ?, ?, ?)""",
+                    batch,
+                )
+            self.conn.commit()
+            return len(rows)
+        except mariadb.Error as e:
+            self.conn.rollback()
+            raise e
         finally:
             cursor.close()
 

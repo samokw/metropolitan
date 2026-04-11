@@ -6,9 +6,11 @@ import pytest
 from src.pipeline.transform import (
     pivot_housing_data,
     transform_labour_data,
+    transform_lfs_ontario_annual,
     validate_columns,
     _parse_geo,
     _parse_month,
+    _parse_year,
     _safe_int,
 )
 
@@ -26,6 +28,13 @@ class TestHelpers:
 
     def test_parse_month_invalid(self):
         assert _parse_month("2024") == 0
+
+    def test_parse_year(self):
+        assert _parse_year("2024-01") == 2024
+        assert _parse_year("1990-12") == 1990
+
+    def test_parse_year_invalid(self):
+        assert _parse_year("") == 0
 
     def test_safe_int_normal(self):
         assert _safe_int("1500") == 1500
@@ -66,6 +75,7 @@ class TestPivotHousingData:
         record = records[0]
         assert record["census_metropolitan_area"] == "Toronto"
         assert record["month"] == 1
+        assert record["year"] == 2024
         assert record["total_starts"] == 1500
         assert record["singles_starts"] == 200
         assert record["total_complete"] == 1200
@@ -99,11 +109,21 @@ class TestPivotHousingData:
             pivot_housing_data(rows)
 
 
+def _labour_row(prov, educ, lfs, sy=2024, sm=3):
+    return {
+        "PROV": str(prov),
+        "EDUC": str(educ),
+        "LFSSTAT": str(lfs),
+        "SURVYEAR": str(sy),
+        "SURVMNTH": str(sm),
+    }
+
+
 class TestTransformLabourData:
     def test_transform_basic(self):
         rows = [
-            {"PROV": "35", "EDUC": "4", "LFSSTAT": "1"},
-            {"PROV": "48", "EDUC": "2", "LFSSTAT": "3"},
+            _labour_row(35, 4, 1),
+            _labour_row(48, 2, 3),
         ]
         records = transform_labour_data(rows)
 
@@ -111,11 +131,13 @@ class TestTransformLabourData:
         assert records[0]["province"] == 35
         assert records[0]["education_level"] == 4
         assert records[0]["labour_force_status"] == 1
+        assert records[0]["survey_year"] == 2024
+        assert records[0]["survey_month"] == 3
 
     def test_transform_skips_bad_rows(self):
         rows = [
-            {"PROV": "35", "EDUC": "4", "LFSSTAT": "1"},
-            {"PROV": "bad", "EDUC": "4", "LFSSTAT": "1"},
+            _labour_row(35, 4, 1),
+            {"PROV": "bad", "EDUC": "4", "LFSSTAT": "1", "SURVYEAR": "2024", "SURVMNTH": "3"},
         ]
         records = transform_labour_data(rows)
         assert len(records) == 1
@@ -128,3 +150,50 @@ class TestTransformLabourData:
     def test_transform_empty_raises(self):
         with pytest.raises(ValueError):
             transform_labour_data([])
+
+
+class TestTransformLfsOntarioAnnual:
+    def test_pivot_ontario_rates(self):
+        rows = [
+            {
+                "REF_DATE": "2019",
+                "GEO": "Ontario",
+                "Labour force characteristics": "Employment rate",
+                "VALUE": "62.1",
+            },
+            {
+                "REF_DATE": "2019",
+                "GEO": "Ontario",
+                "Labour force characteristics": "Unemployment rate",
+                "VALUE": "5.6",
+            },
+            {
+                "REF_DATE": "2019",
+                "GEO": "Ontario",
+                "Labour force characteristics": "Participation rate",
+                "VALUE": "65.8",
+            },
+            {
+                "REF_DATE": "2019",
+                "GEO": "Alberta",
+                "Labour force characteristics": "Employment rate",
+                "VALUE": "70.0",
+            },
+        ]
+        out = transform_lfs_ontario_annual(rows)
+        assert len(out) == 1
+        assert out[0]["year"] == 2019
+        assert out[0]["employment_rate"] == 62.1
+        assert out[0]["unemployment_rate"] == 5.6
+        assert out[0]["participation_rate"] == 65.8
+
+    def test_skips_incomplete_year(self):
+        rows = [
+            {
+                "REF_DATE": "2020",
+                "GEO": "Ontario",
+                "Labour force characteristics": "Employment rate",
+                "VALUE": "60",
+            },
+        ]
+        assert transform_lfs_ontario_annual(rows) == []
