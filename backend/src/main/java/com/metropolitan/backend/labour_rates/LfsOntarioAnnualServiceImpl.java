@@ -1,10 +1,12 @@
 package com.metropolitan.backend.labour_rates;
 
-import com.metropolitan.backend.labour_rates.dao.LfsOntarioAnnualDao;
-import com.metropolitan.backend.labour_rates.models.LfsOntarioAnnual;
 import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import com.metropolitan.backend.labour_rates.dao.LfsOntarioAnnualDao;
+import com.metropolitan.backend.labour_rates.models.LfsOntarioAnnual;
 
 @Service
 public class LfsOntarioAnnualServiceImpl implements LfsOntarioAnnualService {

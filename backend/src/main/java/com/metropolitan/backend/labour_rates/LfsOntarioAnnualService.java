@@ -1,7 +1,8 @@
 package com.metropolitan.backend.labour_rates;
 
-import com.metropolitan.backend.labour_rates.models.LfsOntarioAnnual;
 import java.util.List;
+
+import com.metropolitan.backend.labour_rates.models.LfsOntarioAnnual;
 
 public interface LfsOntarioAnnualService {
 
