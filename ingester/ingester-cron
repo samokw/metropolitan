@@ -1,5 +1,3 @@
-# Run cron job at midnight everyday
-0 0 * * * echo "[$(date)] Starting cron job execution" >> /var/log/cron.log && cd /usr/app && API_URL_HOUSING=https://cis-data-service.socs.uoguelph.ca/data/housing_starts_completions API_URL_LABOUR_MARKET=https://cis-data-service.socs.uoguelph.ca/data/labour_market  API_KEY=d72Mk_r-2uMm2BI88temUsgSCWNnhZ-6rlNY8Nnn_YytRFRcIf69Rg PYTHONPATH=/usr/app /usr/local/bin/python /usr/app/src/DataIngester.py >> /var/log/cron.log 2>&1
-#Run Crom Job every hour for testing (do not delete)
-# */60 * * * * echo "[$(datgit ce)] Starting cron job execution" >> /var/log/cron.log && cd /usr/app && API_URL_HOUSING=https://cis-data-service.socs.uoguelph.ca/data/housing_starts_completions API_URL_LABOUR_MARKET=https://cis-data-service.socs.uoguelph.ca/data/labour_market  API_KEY=d72Mk_r-2uMm2BI88temUsgSCWNnhZ-6rlNY8Nnn_YytRFRcIf69Rg PYTHONPATH=/usr/app /usr/local/bin/python /usr/app/src/DataIngester.py >> /var/log/cron.log 2>&1
+# Run ingestion pipeline daily at midnight
+0 0 * * * echo "[$(date)] Starting pipeline run" >> /var/log/cron.log && cd /usr/app && PYTHONPATH=/usr/app /usr/local/bin/python /usr/app/src/DataIngester.py >> /var/log/cron.log 2>&1
 # An empty line is required at the end of this file for a valid cron file.

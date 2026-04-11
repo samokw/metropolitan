@@ -16,6 +16,7 @@ pytest==8.3.4
 pytest-cov==6.0.0
 pylint==3.3.4
 requests==2.32.3
+dataclasses-json==0.6.4
 tomli==2.2.1
 tomlkit==0.13.2
 urllib3==2.2.3
