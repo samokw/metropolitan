@@ -96,7 +96,7 @@ def expand_discover_urls(base_url: str) -> list[str]:
     """
     Monthly links from the product page plus optional hist/ bundles for complete past years.
     """
-    page = os.getenv("STATCAN_LABOUR_PUMF_PRODUCT_PAGE_URL", DEFAULT_LFS_PUMF_PRODUCT_PAGE).strip()
+    page = (os.getenv("STATCAN_LABOUR_PUMF_PRODUCT_PAGE_URL") or DEFAULT_LFS_PUMF_PRODUCT_PAGE).strip()
     out: list[str] = list(discover_monthly_pumf_zip_urls(page))
     if env_truthy("STATCAN_LABOUR_PUMF_AUTO_HIST", True):
         min_y = int(os.getenv("STATCAN_LABOUR_PUMF_AUTO_HIST_MIN_YEAR") or "2020")
