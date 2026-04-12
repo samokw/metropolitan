@@ -99,7 +99,7 @@ def expand_discover_urls(base_url: str) -> list[str]:
     page = os.getenv("STATCAN_LABOUR_PUMF_PRODUCT_PAGE_URL", DEFAULT_LFS_PUMF_PRODUCT_PAGE).strip()
     out: list[str] = list(discover_monthly_pumf_zip_urls(page))
     if env_truthy("STATCAN_LABOUR_PUMF_AUTO_HIST", True):
-        min_y = int(os.getenv("STATCAN_LABOUR_PUMF_AUTO_HIST_MIN_YEAR", "2020"))
+        min_y = int(os.getenv("STATCAN_LABOUR_PUMF_AUTO_HIST_MIN_YEAR") or "2020")
         max_y = datetime.now(timezone.utc).year - 1
         hist_urls = probe_hist_bundle_urls(base_url, min_y, max_y)
         out.extend(hist_urls)
