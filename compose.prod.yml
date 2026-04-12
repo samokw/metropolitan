@@ -82,7 +82,7 @@ services:
       - backend-database
 
   grafana:
-    image: grafana/grafana
+    image: grafana/grafana:11.5.2
     environment:
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
