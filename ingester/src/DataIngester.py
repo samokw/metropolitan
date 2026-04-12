@@ -78,7 +78,7 @@ def resolve_labour_pumf_download_urls() -> list[str]:
     """
     spec = os.getenv("STATCAN_LABOUR_PUMF_SOURCES", "").strip()
     if spec:
-        base = os.getenv("STATCAN_LABOUR_PUMF_BASE_URL", DEFAULT_LFS_PUMF_BASE_URL).rstrip("/")
+        base = (os.getenv("STATCAN_LABOUR_PUMF_BASE_URL") or DEFAULT_LFS_PUMF_BASE_URL).rstrip("/")
         urls: list[str] = []
         for chunk in spec.replace("\n", ",").split(","):
             token = chunk.strip()
