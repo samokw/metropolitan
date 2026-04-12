@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS housing_data (
     jsonid INT DEFAULT 0 COMMENT 'JSON ID',
     census_metropolitan_area VARCHAR(255) COMMENT 'Census Metropolitan Area',
     month INT DEFAULT NULL COMMENT 'Month',
+    year INT DEFAULT NULL COMMENT 'Year',
     total_starts INT DEFAULT 0 COMMENT 'Total Starts',
     total_complete INT DEFAULT 0 COMMENT 'Total Complete',
     singles_starts INT DEFAULT 0 COMMENT 'Singles Starts',
@@ -28,7 +29,17 @@ CREATE TABLE IF NOT EXISTS labour_market_data (
     jsonid INT DEFAULT 0 COMMENT 'JSON ID',
     province INT DEFAULT 0 COMMENT 'Province',
     education_level INT DEFAULT 0 COMMENT 'Education Level',
-    labour_force_status INT DEFAULT 0 COMMENT 'Labour Force Status'
+    labour_force_status INT DEFAULT 0 COMMENT 'Labour Force Status',
+    survey_year INT DEFAULT 0 COMMENT 'LFS PUMF SURVYEAR (reference year)',
+    survey_month INT DEFAULT 0 COMMENT 'LFS PUMF SURVMNTH (reference month)'
+);
+
+-- Annual Ontario LFS rates from StatCan summary table (14-10-0393-01, product 14100393) for time-series charts
+CREATE TABLE IF NOT EXISTS lfs_ontario_annual (
+    `year` INT PRIMARY KEY COMMENT 'Calendar year',
+    employment_rate DECIMAL(5,2) DEFAULT NULL COMMENT 'Employment rate %',
+    unemployment_rate DECIMAL(5,2) DEFAULT NULL COMMENT 'Unemployment rate %',
+    participation_rate DECIMAL(5,2) DEFAULT NULL COMMENT 'Participation rate %'
 );
 
 CREATE TABLE IF NOT EXISTS pipeline_runs (
@@ -43,5 +54,6 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
     success_rate_pct DECIMAL(5,2) DEFAULT 0,
     duration_seconds DECIMAL(8,2) DEFAULT 0,
     error_count INT DEFAULT 0,
+    strategy VARCHAR(20) DEFAULT 'bulk' COMMENT 'Load strategy used (bulk, per_row)',
     run_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

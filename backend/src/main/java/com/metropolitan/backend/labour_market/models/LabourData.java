@@ -18,11 +18,29 @@ public class LabourData {
     @Column(name = "labour_force_status")
     private Integer labourForceStatus;
 
-    public LabourData(Integer id, Integer province, Integer labourForceStatus, Integer educationLevel) {
+    @Column(name = "survey_year")
+    private Integer surveyYear;
+
+    @Column(name = "survey_month")
+    private Integer surveyMonth;
+
+    public LabourData(
+            Integer id,
+            Integer province,
+            Integer labourForceStatus,
+            Integer educationLevel,
+            Integer surveyYear,
+            Integer surveyMonth) {
         this.id = id;
         this.province = province;
         this.labourForceStatus = labourForceStatus;
         this.educationLevel = educationLevel;
+        this.surveyYear = surveyYear;
+        this.surveyMonth = surveyMonth;
+    }
+
+    public LabourData(Integer id, Integer province, Integer labourForceStatus, Integer educationLevel) {
+        this(id, province, labourForceStatus, educationLevel, 0, 0);
     }
 
     public LabourData() {
@@ -58,5 +76,21 @@ public class LabourData {
 
     public void setLabourForceStatus(Integer labourForceStatus) {
         this.labourForceStatus = labourForceStatus;
+    }
+
+    public Integer getSurveyYear() {
+        return surveyYear;
+    }
+
+    public void setSurveyYear(Integer surveyYear) {
+        this.surveyYear = surveyYear;
+    }
+
+    public Integer getSurveyMonth() {
+        return surveyMonth;
+    }
+
+    public void setSurveyMonth(Integer surveyMonth) {
+        this.surveyMonth = surveyMonth;
     }
 }

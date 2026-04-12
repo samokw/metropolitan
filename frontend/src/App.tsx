@@ -1,24 +1,25 @@
 import React, { Component } from 'react';
 import './App.css';
-import { BrowserRouter as Router, Route, Link, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Link, Routes, NavLink } from 'react-router-dom';
 import ProductPitch from './components/ProductPitch';
 import HousingChart from './components/DoubleBarChart';
 import DoubleRadarChart from './components/DoubleRadarChart';
 import LineChartEmployment from './components/LineChartEmployment';
 import LabourForceStats from './components/LabourForceStats';
 import DateTime from './components/DateTime';
+import { PageHero } from './components/PageHero';
 
 interface AppState {
   showContactInfo: boolean;
-  showCompletions: boolean; // Added state to track which data to display
-  darkMode: boolean; // New state for dark mode
+  showCompletions: boolean;
+  darkMode: boolean;
 }
 
 class App extends Component<{}, AppState> {
   public state: AppState = {
     showContactInfo: false,
-    showCompletions: false, // Default to showing housing starts
-    darkMode: false, // Default to light mode
+    showCompletions: false,
+    darkMode: false,
   };
 
   private readonly handleToggleDarkMode = (): void => {
@@ -32,95 +33,103 @@ class App extends Component<{}, AppState> {
     }));
   };
 
+  private getHousingTrendsHeroSrc(): string {
+    const { darkMode, showCompletions } = this.state;
+    if (darkMode) {
+      return showCompletions ? './HCD.png' : './HSD.png';
+    }
+    return showCompletions ? './HC.png' : './HS.png';
+  }
+
   public render(): React.JSX.Element {
+    const { darkMode, showCompletions } = this.state;
     return (
       <Router>
-        <main className={`min-h-screen w-screen overflow-x-hidden ${this.state.darkMode ? 'dark-mode' : ''}`}>
-          <div className={`w-full px-0 ${this.state.darkMode ? 'main-content' : ''}`}>
-            <header className={`w-full px-0  shadow-lg ${this.state.darkMode ? 'bg-[#3d3045]' : 'bg-[#d3f3f8]'}`}>
-              <div className="max-w-lg flex flex-col md:flex-row items-center justify-between gap-4">
-                <nav className="ml-auto">
-                  <ul className="nav-links">
-                    <li>
-                      <Link to="/" className={this.state.darkMode ? 'dark-mode' : ''}>
-                        <img
-                          src={this.state.darkMode ? "./logoMetroDark.png" : "./logoMetro.webp"}
-                          alt="Logo"
-                          className="ml-4"
-                          style={{ height: '75px', width: 'auto' }}
-                        />
-                      </Link>
-                    </li>
+        <main className={`min-h-screen w-screen overflow-x-hidden ${darkMode ? 'dark-mode' : ''}`}>
+          <div className={`w-full px-0 ${darkMode ? 'main-content' : ''}`}>
+            {/* ── Header ─────────────────────────────── */}
+            <header className={`w-full px-4 sm:px-6 py-2.5 transition-colors sticky top-0 z-50 ${darkMode ? 'bg-[#1c1726]/90' : 'bg-[#f4f9fb]/90'}`}>
+              <div className="w-full max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                <Link to="/" className="flex-shrink-0">
+                  <img
+                    src={darkMode ? "./logoMetroDark.png" : "./logoMetro.webp"}
+                    alt="Metropolitan Index"
+                    className="h-10 w-auto sm:h-12 md:h-[60px] max-w-[min(200px,40vw)]"
+                  />
+                </Link>
 
-                    <li><Link to="/types" className={this.state.darkMode ? 'dark-mode' : ''}>Types</Link></li>
-                    <li><Link to="/completions-starts" className={this.state.darkMode ? 'dark-mode' : ''}>Trends</Link></li>
-                    <li><Link to="/employment" className={this.state.darkMode ? 'dark-mode' : ''}>Employment</Link></li>
-                    <li><Link to="/labour-force-stats" className={this.state.darkMode ? 'dark-mode' : ''}>Labour</Link></li>
-                    <li><Link to="/contact" className={this.state.darkMode ? 'dark-mode' : ''}>Contact</Link></li>
-
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={this.handleToggleDarkMode}
-                        className={`px-4 py-2 rounded text-white hover:bg-blue-600 transition ${this.state.darkMode ? 'bg-[#1e1421]' : 'bg-[#b5e3f7]'}`}
-                      >
-                        {this.state.darkMode ? '🔆' : '🌙'}
-                      </button>
-                      <DateTime darkMode={this.state.darkMode} />
-                    </div>
+                <nav className="min-w-0 flex-1 basis-[min(100%,280px)] md:basis-auto md:flex-[1_1_auto]">
+                  <ul className="nav-links flex flex-wrap items-center justify-center gap-0.5 sm:gap-1">
+                    <li><NavLink to="/types" className={({ isActive }) => `${darkMode ? 'dark-mode' : ''} ${isActive ? 'nav-active' : ''}`}>Types</NavLink></li>
+                    <li><NavLink to="/completions-starts" className={({ isActive }) => `${darkMode ? 'dark-mode' : ''} ${isActive ? 'nav-active' : ''}`}>Trends</NavLink></li>
+                    <li><NavLink to="/employment" className={({ isActive }) => `${darkMode ? 'dark-mode' : ''} ${isActive ? 'nav-active' : ''}`}>Employment</NavLink></li>
+                    <li><NavLink to="/labour-force-stats" className={({ isActive }) => `${darkMode ? 'dark-mode' : ''} ${isActive ? 'nav-active' : ''}`}>Labour</NavLink></li>
+                    <li><NavLink to="/contact" className={({ isActive }) => `${darkMode ? 'dark-mode' : ''} ${isActive ? 'nav-active' : ''}`}>Contact</NavLink></li>
                   </ul>
                 </nav>
 
+                <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                  <button
+                    onClick={this.handleToggleDarkMode}
+                    className="dark-mode-toggle"
+                    aria-label="Toggle dark mode"
+                  >
+                    {darkMode ? '☀️' : '🌙'}
+                  </button>
+                  <DateTime darkMode={darkMode} />
+                </div>
               </div>
             </header>
+
+            {/* ── Routes ─────────────────────────────── */}
             <Routes>
               <Route
                 path="/"
                 element={
                   <section className="my-0">
-                    <div className="flex justify-center items-center mb-1">
-                      <img
-                        src={this.state.darkMode ? './darkmodeTitle.png' : './title.png'}
-                        alt="Title"
-                        style={{ height: '300px', width: '50%' }}
-                      />
-                    </div>
-                    <ProductPitch darkMode={this.state.darkMode} />
+                    <PageHero
+                      src={darkMode ? './darkmodeTitle.png' : './title.png'}
+                      alt="Title"
+                      imgClassName="max-h-[min(280px,68vw)] sm:max-h-[280px] w-auto max-w-[min(520px,90vw)]"
+                    />
+                    <ProductPitch darkMode={darkMode} />
                   </section>
                 }
               />
               <Route
                 path="/types"
                 element={
-                  <section className="my-5">
-                    <div className="flex justify-center items-center mb-1">
-                      <img src={this.state.darkMode ? "./HTD.png" : "./HT.png"} alt="TitleHousing" style={{ height: '250px' }} />
-                    </div>
-                    <div className="max-w-4xl mx-auto">
-                      <DoubleRadarChart darkMode={this.state.darkMode} />
+                  <section className="py-6">
+                    <PageHero
+                      src={darkMode ? './HTD.png' : './HT.png'}
+                      alt="Housing types"
+                      imgClassName="max-h-[180px] sm:max-h-[210px] md:max-h-[230px]"
+                    />
+                    <div className="max-w-5xl mx-auto px-4 mt-4">
+                      <DoubleRadarChart darkMode={darkMode} />
                     </div>
                   </section>
-                }></Route>
+                }
+              />
               <Route
                 path="/completions-starts"
                 element={
-                  <section className="my-5">
-                    <div className="flex justify-center items-center mb-1">
-                      <img
-                        src={
-                          (() => {
-                            if (this.state.darkMode) {
-                              return this.state.showCompletions ? "./HCD.png" : "./HSD.png";
-                            } else {
-                              return this.state.showCompletions ? "./HC.png" : "./HS.png";
-                            }
-                          })()
-                        } alt="Housing"
-                        style={this.state.showCompletions ? { height: '300px' } : { height: '250px' }} />
-                    </div>
-                    <div className="max-w-4xl mx-auto">
-                      <HousingChart darkMode={this.state.darkMode}
-                        showCompletions={this.state.showCompletions} // Pass the state for showCompletions
-                        onToggleView={this.handleToggleView} />
+                  <section className="py-6">
+                    <PageHero
+                      src={this.getHousingTrendsHeroSrc()}
+                      alt="Housing trends"
+                      imgClassName={
+                        showCompletions
+                          ? 'max-h-[200px] sm:max-h-[260px] md:max-h-[280px]'
+                          : 'max-h-[180px] sm:max-h-[210px] md:max-h-[230px]'
+                      }
+                    />
+                    <div className="max-w-5xl mx-auto px-4 mt-4">
+                      <HousingChart
+                        darkMode={darkMode}
+                        showCompletions={showCompletions}
+                        onToggleView={this.handleToggleView}
+                      />
                     </div>
                   </section>
                 }
@@ -128,68 +137,51 @@ class App extends Component<{}, AppState> {
               <Route
                 path="/contact"
                 element={
-                  <section className="my-15 min-h-screen flex flex-col items-center">
-                    <img
-                      src={this.state.darkMode ? "./CUD.png" : "./CU.png"}
-                      alt="Contact Us"
-                      style={{ height: '160px' }}
-                      className="mb-6"
+                  <section className="py-10 md:py-14 min-h-screen flex flex-col items-center px-4">
+                    <PageHero
+                      src={darkMode ? './CUD.png' : './CU.png'}
+                      alt="Contact us"
+                      imgClassName="max-h-[100px] sm:max-h-[140px] mb-6"
                     />
-                    <div className="contact-info w-full max-w-md rounded-lg p-6 text-center border-2 text-lg md:text-xl">
+                    <div className="contact-info w-full max-w-md rounded-xl p-6 text-center border text-base md:text-lg">
                       <div className="flex items-center gap-3 mb-4">
-                        <img src={this.state.darkMode ? "./mailDark.png" : "./mailLight.png"} alt="Email Icon" className="h-8 w-8" />
-                        <a
-                          href="mailto:info@metropolitanindex.com"
-                          className={`hover:underline ${this.state.darkMode ? 'text-white' : 'text-[#2b9bda]'}`}
-                        >
+                        <img src={darkMode ? "./mailDark.png" : "./mailLight.png"} alt="Email" className="h-7 w-7" />
+                        <a href="mailto:info@metropolitanindex.com" className={`hover:underline ${darkMode ? 'text-white' : 'text-[var(--color-primary)]'}`}>
                           info@metropolitanindex.com
                         </a>
                       </div>
                       <div className="flex items-center gap-3 mb-4">
-                        <img src={this.state.darkMode ? "./phoneDark.png" : "./phoneLight.png"} alt="Phone Icon" className="h-8 w-8" />
-                        <a
-                          href="tel:+11234567890"
-                          className={`hover:underline ${this.state.darkMode ? 'text-white' : 'text-[#2b9bda]'}`}
-                        >
+                        <img src={darkMode ? "./phoneDark.png" : "./phoneLight.png"} alt="Phone" className="h-7 w-7" />
+                        <a href="tel:+11234567890" className={`hover:underline ${darkMode ? 'text-white' : 'text-[var(--color-primary)]'}`}>
                           (123) 456-7890
                         </a>
                       </div>
                       <div className="flex items-center gap-3 mb-4">
-                        <img src={this.state.darkMode ? "./instaDark.png" : "./instaLight.png"} alt="Instagram" className="h-8 w-8" />
-                        <a
-                          href="https://www.instagram.com/bts.bighitofficial/?hl=en"
-                          className={`hover:underline ${this.state.darkMode ? 'text-white' : 'text-[#2b9bda]'}`}
-                        >
+                        <img src={darkMode ? "./instaDark.png" : "./instaLight.png"} alt="Instagram" className="h-7 w-7" />
+                        <a href="https://www.instagram.com/bts.bighitofficial/?hl=en" className={`hover:underline ${darkMode ? 'text-white' : 'text-[var(--color-primary)]'}`}>
                           Follow Us For Updates
                         </a>
                       </div>
                       <div className="flex items-center gap-3 mb-4">
-                        <img src={this.state.darkMode ? "./discordDark.png" : "./discord light.png"} alt="Discord" className="h-8 w-8" />
-                        <a
-                          href="https://discord.gg/qXeEcnJyYA"
-                          className={`hover:underline ${this.state.darkMode ? 'text-white' : 'text-[#2b9bda]'}`}
-                        >
+                        <img src={darkMode ? './discordDark.png' : './discordLight.png'} alt="Discord" className="h-7 w-7" />
+                        <a href="https://discord.gg/qXeEcnJyYA" className={`hover:underline ${darkMode ? 'text-white' : 'text-[var(--color-primary)]'}`}>
                           Join Our Discord
                         </a>
                       </div>
-
                     </div>
                   </section>
                 }
-              >
-              </Route>
+              />
               <Route
                 path="/employment"
                 element={
-                  <section className="my-0">
-                    <div className="flex justify-center items-center mb-1">
-                      <img
-                        src={this.state.darkMode ? "./employmentD.png" : "./employment.png"} alt="Employment" style={{ height: '275px' }}
-
-                      />
-                    </div>
-                    <div className="max-w-4xl mx-auto">
-                      <LineChartEmployment darkMode={this.state.darkMode} />
+                  <section className="py-6">
+                    <PageHero
+                      src={darkMode ? './employmentD.png' : './employment.png'}
+                      alt="Employment"
+                    />
+                    <div className="max-w-5xl mx-auto px-4 mt-4">
+                      <LineChartEmployment darkMode={darkMode} />
                     </div>
                   </section>
                 }
@@ -197,25 +189,26 @@ class App extends Component<{}, AppState> {
               <Route
                 path="/labour-force-stats"
                 element={
-                  <section className="my-0">
-                    <div className="flex justify-center items-center mb-1">
-                      <img
-                        src={this.state.darkMode ? "./LFD.png" : "./LF.png"} alt="Labour" style={{ height: '275px' }}
-                      />
-                    </div>
-                    <div className="max-w-4xl mx-auto">
-                      <LabourForceStats darkMode={this.state.darkMode} />
+                  <section className="py-6">
+                    <PageHero
+                      src={darkMode ? './LFD.png' : './LF.png'}
+                      alt="Labour force"
+                    />
+                    <div className="max-w-5xl mx-auto px-4 mt-4">
+                      <LabourForceStats darkMode={darkMode} />
                     </div>
                   </section>
                 }
               />
             </Routes>
-            <footer className={`w-full px-4 py-6 text-center ${this.state.darkMode ? 'bg-[#1e1421] text-white' : 'bg-[#d3f3f8] text-black'}`}>
-              <p>&copy; 2025 Metropolitan Index. All Rights Reserved.</p>
+
+            {/* ── Footer ─────────────────────────────── */}
+            <footer className={`w-full px-4 py-6 text-center transition-colors ${darkMode ? 'text-[var(--color-text-muted)]' : 'text-[var(--color-text-secondary)]'}`}>
+              <p className="font-medium text-sm" style={{ fontFamily: 'var(--font-display)' }}>&copy; 2025 Metropolitan Index. All Rights Reserved.</p>
               <div className="social-links">
-                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="mx-2">Twitter</a>
-                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="mx-2">Facebook</a>
-                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" className="mx-2">LinkedIn</a>
+                <a href="https://twitter.com" target="_blank" rel="noopener noreferrer">Twitter</a>
+                <a href="https://facebook.com" target="_blank" rel="noopener noreferrer">Facebook</a>
+                <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer">LinkedIn</a>
               </div>
             </footer>
           </div>

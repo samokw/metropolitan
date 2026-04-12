@@ -8,13 +8,14 @@ class DataTest {
 
     @Test
     void testConstructorAndGetters() {
-        Data data = new Data(1, "Test Area", 100, 50, 12, 20, 10, 30, 40, 5, 15, 25, 5);
+        Data data = new Data(1, "Test Area", 100, 50, 12, 2024, 20, 10, 30, 40, 5, 15, 25, 5);
 
         assertEquals(1, data.getId());
         assertEquals("Test Area", data.getCensusArea());
         assertEquals(100, data.getTotalStarts());
         assertEquals(50, data.getTotalComplete());
         assertEquals(12, data.getMonth());
+        assertEquals(2024, data.getYear());
         assertEquals(20, data.getSingleStarts());
         assertEquals(10, data.getSemisStarts());
         assertEquals(30, data.getRowStarts());
@@ -33,6 +34,7 @@ class DataTest {
         data.setTotalStarts(200);
         data.setTotalComplete(100);
         data.setMonth(6);
+        data.setYear(2024);
         data.setSingleStarts(30);
         data.setSemisStarts(15);
         data.setRowStarts(45);
@@ -47,6 +49,7 @@ class DataTest {
         assertEquals(200, data.getTotalStarts());
         assertEquals(100, data.getTotalComplete());
         assertEquals(6, data.getMonth());
+        assertEquals(2024, data.getYear());
         assertEquals(30, data.getSingleStarts());
         assertEquals(15, data.getSemisStarts());
         assertEquals(45, data.getRowStarts());
@@ -66,6 +69,7 @@ class DataTest {
         assertNull(data.getTotalStarts());
         assertNull(data.getTotalComplete());
         assertNull(data.getMonth());
+        assertNull(data.getYear());
         assertNull(data.getSingleStarts());
         assertNull(data.getSemisStarts());
         assertNull(data.getRowStarts());

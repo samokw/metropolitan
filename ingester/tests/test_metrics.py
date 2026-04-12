@@ -37,10 +37,17 @@ class TestPipelineMetrics:
         m = PipelineMetrics(source="labour")
         summary = m.summary()
         expected_keys = {
-            "source", "records_extracted", "records_transformed",
-            "records_loaded", "records_rejected", "bytes_downloaded",
-            "estimated_bytes_loaded", "success_rate_pct",
-            "duration_seconds", "error_count",
+            "source",
+            "strategy",
+            "records_extracted",
+            "records_transformed",
+            "records_loaded",
+            "records_rejected",
+            "bytes_downloaded",
+            "estimated_bytes_loaded",
+            "success_rate_pct",
+            "duration_seconds",
+            "error_count",
         }
         assert set(summary.keys()) == expected_keys
         assert summary["source"] == "labour"

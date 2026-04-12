@@ -66,108 +66,71 @@ export const getCompletionsByCensusArea = async (censusArea: string): Promise<nu
   }
 };
 
-// New interface for monthly data format used by DoubleBarChart
 export interface MonthlyData {
   month: number;
   toronto: number;
   hamilton: number;
 }
 
-// New interface for processed housing data
 export interface ProcessedHousingData {
   startsData: MonthlyData[];
   completionsData: MonthlyData[];
   availableMonths: number[];
+  availableYears: number[];
 }
 
-export const fetchProcessedHousingData = async (): Promise<ProcessedHousingData> => {
+export const fetchProcessedHousingData = async (selectedYear?: number): Promise<ProcessedHousingData> => {
   try {
-    // Fetch all housing data
     const response = await fetch(`${API_URL}`);
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
     }
-    
+
     const allData = await response.json();
-    console.log('Raw data from API:', allData);
-    
-    // Process the data to group by month
+    const yearsSet = new Set<number>();
+    const monthsSet = new Set<number>();
+
+    allData.forEach((item: any) => {
+      if (item.year) yearsSet.add(item.year);
+    });
+
+    const availableYears = Array.from(yearsSet).sort((a, b) => b - a);
+    const filterYear = selectedYear ?? availableYears[0];
+
     const startsDataMap = new Map<number, MonthlyData>();
     const completionsDataMap = new Map<number, MonthlyData>();
-    const monthsSet = new Set<number>();
-    
+
     allData.forEach((item: any) => {
-      // Handle potentially missing month data - default to 1 if not present
-      const month = item.month !== null && item.month !== undefined ? 
-        parseInt(item.month, 10) : 1;
-      
-      // Add to available months
+      const year = item.year ?? 0;
+      if (year !== filterYear) return;
+
+      const month = item.month ?? 1;
       monthsSet.add(month);
-      
-      // Debug log for problematic records
-      if (item.month === null || item.month === undefined) {
-        console.warn('Record with missing month:', item);
-      }
-      
-      // Process starts data
+
       if (!startsDataMap.has(month)) {
-        startsDataMap.set(month, {
-          month,
-          toronto: 0,
-          hamilton: 0
-        });
+        startsDataMap.set(month, { month, toronto: 0, hamilton: 0 });
       }
-      
-      // Process completions data
       if (!completionsDataMap.has(month)) {
-        completionsDataMap.set(month, {
-          month,
-          toronto: 0,
-          hamilton: 0
-        });
+        completionsDataMap.set(month, { month, toronto: 0, hamilton: 0 });
       }
-      
-      // Update data based on census area
+
       if (item.censusArea === "Toronto") {
-        const existingStartsData = startsDataMap.get(month)!;
-        existingStartsData.toronto += item.totalStarts || 0;
-        startsDataMap.set(month, existingStartsData);
-        
-        const existingCompletionsData = completionsDataMap.get(month)!;
-        existingCompletionsData.toronto += item.totalComplete || 0;
-        completionsDataMap.set(month, existingCompletionsData);
+        startsDataMap.get(month)!.toronto += item.totalStarts || 0;
+        completionsDataMap.get(month)!.toronto += item.totalComplete || 0;
       } else if (item.censusArea === "Hamilton") {
-        const existingStartsData = startsDataMap.get(month)!;
-        existingStartsData.hamilton += item.totalStarts || 0;
-        startsDataMap.set(month, existingStartsData);
-        
-        const existingCompletionsData = completionsDataMap.get(month)!;
-        existingCompletionsData.hamilton += item.totalComplete || 0;
-        completionsDataMap.set(month, existingCompletionsData);
+        startsDataMap.get(month)!.hamilton += item.totalStarts || 0;
+        completionsDataMap.get(month)!.hamilton += item.totalComplete || 0;
       }
     });
-    
-    // Convert maps to arrays and sort by month
-    const startsData = Array.from(startsDataMap.values()).sort((a, b) => a.month - b.month);
-    const completionsData = Array.from(completionsDataMap.values()).sort((a, b) => a.month - b.month);
-    const availableMonths = Array.from(monthsSet).sort((a, b) => a - b);
-    
-    console.log('Processed starts data:', startsData);
-    console.log('Processed completions data:', completionsData);
-    console.log('Available months:', availableMonths);
-    
+
     return {
-      startsData,
-      completionsData,
-      availableMonths
+      startsData: Array.from(startsDataMap.values()).sort((a, b) => a.month - b.month),
+      completionsData: Array.from(completionsDataMap.values()).sort((a, b) => a.month - b.month),
+      availableMonths: Array.from(monthsSet).sort((a, b) => a - b),
+      availableYears
     };
   } catch (error) {
     console.error('Error in fetchProcessedHousingData:', error);
-    // Return empty data structure instead of throwing
-    return {
-      startsData: [],
-      completionsData: [],
-      availableMonths: []
-    };
+    return { startsData: [], completionsData: [], availableMonths: [], availableYears: [] };
   }
 };

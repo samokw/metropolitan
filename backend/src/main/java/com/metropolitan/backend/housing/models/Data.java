@@ -1,6 +1,11 @@
 package com.metropolitan.backend.housing.models;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "housing_data")
@@ -20,6 +25,9 @@ public class Data {
 
     @Column(name = "`month`")
     private Integer month;
+
+    @Column(name = "`year`")
+    private Integer year;
 
     @Column(name = "singles_starts")
     private Integer singleStarts;
@@ -49,12 +57,13 @@ public class Data {
         
     }
 
-    public Data(Integer id, String censusArea, Integer totalStarts, Integer totalComplete, Integer month, Integer singleStarts, Integer semisStarts, Integer rowStarts, Integer apartmentStarts, Integer singlesComplete, Integer semisComplete, Integer rowComplete, Integer apartmentComplete) {
+    public Data(Integer id, String censusArea, Integer totalStarts, Integer totalComplete, Integer month, Integer year, Integer singleStarts, Integer semisStarts, Integer rowStarts, Integer apartmentStarts, Integer singlesComplete, Integer semisComplete, Integer rowComplete, Integer apartmentComplete) {
         this.id = id;
         this.censusArea = censusArea;
         this.totalStarts = totalStarts;
         this.totalComplete = totalComplete;
         this.month = month;
+        this.year = year;
         this.singleStarts = singleStarts;
         this.semisStarts = semisStarts;
         this.rowStarts = rowStarts;
@@ -103,6 +112,14 @@ public class Data {
 
     public void setMonth(Integer month) {
         this.month = month;
+    }
+
+    public Integer getYear() {
+        return year;
+    }
+
+    public void setYear(Integer year) {
+        this.year = year;
     }
 
     public Integer getSingleStarts() {

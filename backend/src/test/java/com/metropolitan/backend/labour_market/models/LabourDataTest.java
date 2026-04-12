@@ -30,6 +30,15 @@ class LabourDataTest {
     assertEquals(2, data.getProvince());
     assertEquals(4, data.getEducationLevel());
     assertEquals(3, data.getLabourForceStatus());
+    assertEquals(0, data.getSurveyYear());
+    assertEquals(0, data.getSurveyMonth());
+  }
+
+  @Test
+  void testParameterizedConstructorWithSurveyPeriod() {
+    LabourData data = new LabourData(1, 35, 1, 4, 2024, 3);
+    assertEquals(2024, data.getSurveyYear());
+    assertEquals(3, data.getSurveyMonth());
   }
 
   @Test

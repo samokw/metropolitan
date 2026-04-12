@@ -56,7 +56,8 @@ services:  # Defines the services that make up the application
       - DB_USER=root
       - DB_PASSWORD=pwd
       - STATCAN_HOUSING_URL=https://www150.statcan.gc.ca/n1/tbl/csv/34100154-eng.zip
-      - STATCAN_LABOUR_URL=https://www150.statcan.gc.ca/n1/tbl/csv/14100017-eng.zip
+      - STATCAN_LABOUR_PUMF_SOURCES=discover
+      - STATCAN_LFS_SUMMARY_URL=https://www150.statcan.gc.ca/n1/tbl/csv/14100393-eng.zip
     depends_on:
       - database  # Ensures MySQL service is started before the Python service
     networks:

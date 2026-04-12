@@ -23,10 +23,24 @@ HOUSING_COLUMN_MAP = {
     ("Housing completions", "Total units"): "total_complete",
 }
 
-LABOUR_REQUIRED_COLUMNS = {"PROV", "EDUC", "LFSSTAT"}
+LABOUR_REQUIRED_COLUMNS = {"PROV", "EDUC", "LFSSTAT", "SURVYEAR", "SURVMNTH"}
 
 AVG_HOUSING_ROW_BYTES = 120
 AVG_LABOUR_ROW_BYTES = 40
+AVG_LFS_SUMMARY_ROW_BYTES = 48
+
+LFS_ONTARIO_REQUIRED_COLUMNS = {
+    "REF_DATE",
+    "GEO",
+    "Labour force characteristics",
+    "VALUE",
+}
+
+LFS_RATE_CHARACTERISTICS = {
+    "Employment rate": "employment_rate",
+    "Unemployment rate": "unemployment_rate",
+    "Participation rate": "participation_rate",
+}
 
 
 def validate_columns(rows, required_columns, source_name):
@@ -59,6 +73,14 @@ def _parse_month(ref_date):
     parts = ref_date.split("-")
     if len(parts) >= 2:
         return int(parts[1])
+    return 0
+
+
+def _parse_year(ref_date):
+    """Extract year as int from REF_DATE like '2024-01'."""
+    parts = ref_date.split("-")
+    if parts and parts[0]:
+        return int(parts[0])
     return 0
 
 
@@ -109,6 +131,7 @@ def pivot_housing_data(rows):
         record = {
             "census_metropolitan_area": _parse_geo(geo),
             "month": _parse_month(ref_date),
+            "year": _parse_year(ref_date),
             "singles_starts": columns.get("singles_starts", 0),
             "semis_starts": columns.get("semis_starts", 0),
             "row_starts": columns.get("row_starts", 0),
@@ -136,31 +159,102 @@ def transform_labour_data(rows):
     """
     Transform LFS PUMF CSV rows into dicts matching the labour_market_data
     table schema. The CSV is already flat, so no pivot is needed.
+    Preserves SURVYEAR / SURVMNTH so multiple monthly waves can be stored.
 
     Returns:
         list of dicts ready for LabourMarketData construction.
     """
     validate_columns(rows, LABOUR_REQUIRED_COLUMNS, "Labour")
 
+    ref_sy = _safe_int(rows[0]["SURVYEAR"])
+    ref_sm = _safe_int(rows[0]["SURVMNTH"])
+
     records = []
     skipped = 0
+    mixed_wave = 0
 
     for row in rows:
         try:
+            sy = _safe_int(row["SURVYEAR"])
+            sm = _safe_int(row["SURVMNTH"])
+            if sy != ref_sy or sm != ref_sm:
+                mixed_wave += 1
             record = {
                 "province": _safe_int(row["PROV"]),
                 "education_level": _safe_int(row["EDUC"]),
                 "labour_force_status": _safe_int(row["LFSSTAT"]),
+                "survey_year": sy,
+                "survey_month": sm,
             }
             records.append(record)
         except (ValueError, TypeError) as err:
             skipped += 1
             logger.debug("Skipping bad labour row: %s", err)
 
+    if mixed_wave:
+        logger.warning(
+            "Labour PUMF file has %d rows with survey period differing from first row (%d-%02d)",
+            mixed_wave, ref_sy, ref_sm,
+        )
+
     if skipped:
         logger.warning("Skipped %d bad rows during labour transform", skipped)
 
     logger.info(
-        "Transformed %d labour rows (%d skipped)", len(records), skipped
+        "Transformed %d labour rows for survey %d-%02d (%d skipped)",
+        len(records), ref_sy, ref_sm, skipped,
     )
+    return records
+
+
+def _parse_lfs_year(ref_date):
+    """Year from REF_DATE like '2006' or '2006-01'."""
+    if not ref_date or not str(ref_date).strip():
+        return None
+    return int(str(ref_date).strip().split("-")[0])
+
+
+def transform_lfs_ontario_annual(rows):
+    """
+    Pivot StatCan summary CSV (product 14100393, Ontario) into one record per year
+    with employment, unemployment, and participation rates (%).
+    """
+    validate_columns(rows, LFS_ONTARIO_REQUIRED_COLUMNS, "LFS Ontario annual")
+
+    by_year = {}
+    for row in rows:
+        if row.get("GEO", "").strip() != "Ontario":
+            continue
+        char = row.get("Labour force characteristics", "").strip()
+        if char not in LFS_RATE_CHARACTERISTICS:
+            continue
+        y = _parse_lfs_year(row.get("REF_DATE"))
+        if y is None:
+            continue
+        raw_val = row.get("VALUE")
+        if raw_val is None or str(raw_val).strip() == "":
+            continue
+        try:
+            val = float(str(raw_val).replace(",", "").strip())
+        except (ValueError, TypeError):
+            continue
+        key = LFS_RATE_CHARACTERISTICS[char]
+        by_year.setdefault(y, {})[key] = val
+
+    records = []
+    for year in sorted(by_year):
+        cols = by_year[year]
+        if not all(k in cols for k in ("employment_rate", "unemployment_rate", "participation_rate")):
+            logger.debug("Skipping year %s with incomplete LFS rates: %s", year, cols)
+            continue
+        records.append(
+            {
+                "year": year,
+                "employment_rate": cols["employment_rate"],
+                "unemployment_rate": cols["unemployment_rate"],
+                "participation_rate": cols["participation_rate"],
+            }
+        )
+
+    logger.info("Built %d Ontario annual LFS rate rows", len(records))
     return records

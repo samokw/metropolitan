@@ -19,12 +19,14 @@ vi.mock('chart.js', () => ({
   LineElement: {},
   Filler: {},
   Tooltip: {},
-  Legend: {}
+  Legend: {},
+  Title: {},
 }));
 
 describe('DoubleRadarChart Component', () => {
   const mockProps = {
-    showCompletions: false
+    showCompletions: false,
+    darkMode: false,
   };
   
   const mockHousingData = [
