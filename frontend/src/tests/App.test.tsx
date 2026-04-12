@@ -3,6 +3,11 @@ import { describe, test, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import App from '../App';
 
+// Signature mirrors react-router NavLink; parameter name is only for typing the callback argument shape.
+// eslint-disable-next-line no-unused-vars -- type-only callback parameter (base rule flags type param names)
+type NavLinkClassNameFn = (state: { isActive: boolean }) => string;
+type NavLinkClassNameProp = string | NavLinkClassNameFn;
+
 // Mock react-router-dom (App uses NavLink + Link + BrowserRouter as Router)
 vi.mock('react-router-dom', () => ({
   BrowserRouter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -18,7 +23,7 @@ vi.mock('react-router-dom', () => ({
   }: {
     children: React.ReactNode;
     to: string;
-    className?: string | ((arg: { isActive: boolean }) => string);
+    className?: NavLinkClassNameProp;
   }) => {
     const cls =
       typeof className === 'function' ? className({ isActive: false }) : (className ?? '');
