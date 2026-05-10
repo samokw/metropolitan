@@ -10,6 +10,9 @@ on:
         default: api-load
         options:
           - api-load
+          - housing-all
+          - housing-aggregates
+          - labour-aggregates
           - home
       base_url:
         description: "Base URL to test"

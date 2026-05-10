@@ -18,6 +18,14 @@ Use this to exercise the Spring API and database-backed read paths with a weight
 k6 run test/load/api-load.js
 ```
 
+Use focused tests when a mixed run fails and you need to isolate the bottleneck:
+
+```bash
+k6 run test/load/housing-all.js
+k6 run test/load/housing-aggregates.js
+k6 run test/load/labour-aggregates.js
+```
+
 To test another environment, set `BASE_URL`:
 
 ```bash
@@ -34,3 +42,7 @@ Focus on p95/p99 latency and failed request rate rather than average latency. Us
 - after adding Redis or precomputed aggregates
 
 Run the same script with the same target and compare endpoint-tagged metrics.
+
+The scripts emit `http_status_codes` tagged by `endpoint` and `status`, plus
+`empty_responses`, so failures can be separated into 4xx, 5xx, proxy timeouts,
+and empty successful responses.

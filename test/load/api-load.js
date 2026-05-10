@@ -1,7 +1,10 @@
 import http from "k6/http";
-import { check, sleep } from "k6";
-
-const BASE_URL = __ENV.BASE_URL || "https://metropolitan.foundre.app";
+import {
+  BASE_URL,
+  pickWeightedEndpoint,
+  randomThinkTime,
+  recordResponse,
+} from "./common.js";
 
 export const options = {
   scenarios: {
@@ -55,30 +58,14 @@ const endpoints = [
   },
 ];
 
-function pickEndpoint() {
-  const totalWeight = endpoints.reduce((sum, endpoint) => sum + endpoint.weight, 0);
-  let n = Math.random() * totalWeight;
-
-  for (const endpoint of endpoints) {
-    n -= endpoint.weight;
-    if (n <= 0) return endpoint;
-  }
-
-  return endpoints[0];
-}
-
 export default function () {
-  const endpoint = pickEndpoint();
+  const endpoint = pickWeightedEndpoint(endpoints);
   const res = http.get(`${BASE_URL}${endpoint.path}`, {
     tags: {
       endpoint: endpoint.name,
     },
   });
 
-  check(res, {
-    "status is 200": (r) => r.status === 200,
-    "response is not empty": (r) => r.body && r.body.length > 0,
-  });
-
-  sleep(Math.random() * 2 + 0.5);
+  recordResponse(endpoint.name, res);
+  randomThinkTime();
 }
