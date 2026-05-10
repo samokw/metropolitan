@@ -2,6 +2,19 @@ name: Load test
 
 on:
   workflow_dispatch:
+    inputs:
+      script:
+        description: "k6 script to run"
+        type: choice
+        required: true
+        default: api-load
+        options:
+          - api-load
+          - home
+      base_url:
+        description: "Base URL to test"
+        required: true
+        default: "https://metropolitan.foundre.app"
 
 permissions:
   contents: read
@@ -14,4 +27,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run k6 load test
-        run: k6 run test/load/home.js
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+        run: k6 run test/load/${{ inputs.script }}.js
