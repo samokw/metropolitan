@@ -1,0 +1,17 @@
+name: Load test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  load-test:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run k6 load test
+        run: k6 run test/load/home.js
