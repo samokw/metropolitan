@@ -1,6 +1,11 @@
 name: Load test
 
 on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       script:
@@ -18,12 +23,18 @@ on:
         description: "Base URL to test"
         required: true
         default: "https://metropolitan.foundre.app"
+      run_all:
+        description: "Run all focused API load tests"
+        type: boolean
+        required: true
+        default: false
 
 permissions:
   contents: read
 
 jobs:
-  load-test:
+  selected-load-test:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_all == false
     runs-on: self-hosted
 
     steps:
@@ -33,3 +44,22 @@ jobs:
         env:
           BASE_URL: ${{ inputs.base_url }}
         run: k6 run test/load/${{ inputs.script }}.js
+
+  focused-load-tests:
+    if: github.event_name == 'push' || github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_all == true)
+    runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix:
+        script:
+          - housing-all
+          - housing-aggregates
+          - labour-aggregates
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run focused k6 load test
+        env:
+          BASE_URL: ${{ github.event_name == 'workflow_dispatch' && inputs.base_url || 'https://metropolitan.foundre.app' }}
+        run: k6 run test/load/${{ matrix.script }}.js
