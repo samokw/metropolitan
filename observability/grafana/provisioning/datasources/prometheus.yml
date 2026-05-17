@@ -10,6 +10,14 @@ datasources:
     isDefault: true
     editable: true
 
+  - name: Loki
+    orgId: 1
+    type: loki
+    uid: metropolitan-loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+
   - name: MariaDB
     orgId: 1
     type: mysql

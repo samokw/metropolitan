@@ -1,5 +1,7 @@
 {
-  "annotations": { "list": [] },
+  "annotations": {
+    "list": []
+  },
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -7,82 +9,527 @@
   "links": [],
   "panels": [
     {
-      "title": "Records Loaded per Run",
-      "type": "barchart",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
-      "datasource": "MariaDB",
+      "title": "Latest Run",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
       "targets": [
         {
-          "rawSql": "SELECT run_at AS time, records_loaded AS 'Loaded', records_rejected AS 'Rejected', source FROM pipeline_runs ORDER BY run_at",
           "format": "table",
-          "refId": "A"
+          "refId": "A",
+          "rawSql": "SELECT CASE WHEN error_count = 0 THEN 1 ELSE 0 END AS status FROM pipeline_runs ORDER BY run_at DESC LIMIT 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "ERROR",
+                  "color": "red"
+                },
+                "1": {
+                  "text": "OK",
+                  "color": "green"
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "title": "Runs",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 0
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "refId": "A",
+          "rawSql": "SELECT COUNT(*) AS runs FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "title": "Records Loaded",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 0
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "refId": "A",
+          "rawSql": "SELECT COALESCE(SUM(records_loaded), 0) AS loaded FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "title": "Data Written",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "refId": "A",
+          "rawSql": "SELECT COALESCE(SUM(estimated_bytes_loaded), 0) AS written FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "title": "Avg Success",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "refId": "A",
+          "rawSql": "SELECT COALESCE(AVG(success_rate_pct), 0) AS success_rate FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 90
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "title": "Errors",
+      "type": "stat",
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "refId": "A",
+          "rawSql": "SELECT COALESCE(SUM(error_count), 0) AS errors FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      }
+    },
+    {
+      "title": "Volume",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "title": "Records Loaded by Source",
+      "type": "bargauge",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "table",
+          "refId": "A",
+          "rawSql": "SELECT source AS metric, COALESCE(SUM(records_loaded), 0) AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() GROUP BY source ORDER BY value DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showUnfilled": true
+      }
+    },
+    {
+      "title": "Daily Records Loaded",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
+      "targets": [
+        {
+          "format": "time_series",
+          "refId": "A",
+          "rawSql": "SELECT DATE(run_at) AS time, source AS metric, SUM(records_loaded) AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() GROUP BY DATE(run_at), source ORDER BY time"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
           "custom": {
+            "drawStyle": "bars",
             "fillOpacity": 80,
-            "stacking": { "mode": "normal" }
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           }
         },
-        "overrides": [
-          {
-            "matcher": { "id": "byName", "options": "Rejected" },
-            "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }]
-          },
-          {
-            "matcher": { "id": "byName", "options": "Loaded" },
-            "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }]
-          }
-        ]
-      }
+        "overrides": []
+      },
+      "options": {}
     },
     {
-      "title": "Data Volume Downloaded",
+      "title": "Data Movement",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
-      "datasource": "MariaDB",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
       "targets": [
         {
-          "rawSql": "SELECT run_at AS time, bytes_downloaded AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
           "format": "time_series",
-          "refId": "A"
+          "refId": "A",
+          "rawSql": "SELECT DATE(run_at) AS time, 'downloaded' AS metric, SUM(bytes_downloaded) AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() GROUP BY DATE(run_at) ORDER BY time"
         },
         {
-          "rawSql": "SELECT run_at AS time, bytes_downloaded AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
           "format": "time_series",
-          "refId": "B"
+          "refId": "B",
+          "rawSql": "SELECT DATE(run_at) AS time, 'written' AS metric, SUM(estimated_bytes_loaded) AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() GROUP BY DATE(run_at) ORDER BY time"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "decbytes",
           "custom": {
-            "fillOpacity": 10,
-            "pointSize": 6,
-            "drawStyle": "line",
-            "showPoints": "always"
+            "drawStyle": "bars",
+            "fillOpacity": 45,
+            "lineWidth": 1,
+            "showPoints": "never"
           }
         },
         "overrides": []
-      }
+      },
+      "options": {}
     },
     {
-      "title": "Success Rate Trend",
+      "title": "Run Quality",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "title": "Success Rate by Source",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
-      "datasource": "MariaDB",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 14
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
       "targets": [
         {
-          "rawSql": "SELECT run_at AS time, success_rate_pct AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
           "format": "time_series",
-          "refId": "A"
-        },
-        {
-          "rawSql": "SELECT run_at AS time, success_rate_pct AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
-          "format": "time_series",
-          "refId": "B"
+          "refId": "A",
+          "rawSql": "SELECT run_at AS time, source AS metric, success_rate_pct AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() ORDER BY run_at"
         }
       ],
       "fieldConfig": {
@@ -93,243 +540,211 @@
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 90 },
-              { "color": "green", "value": 99 }
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 90
+              },
+              {
+                "color": "green",
+                "value": 99
+              }
             ]
           },
           "custom": {
-            "fillOpacity": 10,
-            "showPoints": "always",
+            "drawStyle": "points",
             "pointSize": 6,
-            "thresholdsStyle": { "mode": "line" }
+            "showPoints": "always",
+            "fillOpacity": 0,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           }
         },
         "overrides": []
-      }
+      },
+      "options": {}
     },
     {
-      "title": "Pipeline Duration",
+      "title": "Duration by Source",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
-      "datasource": "MariaDB",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 14
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
       "targets": [
         {
-          "rawSql": "SELECT run_at AS time, duration_seconds AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
           "format": "time_series",
-          "refId": "A"
-        },
-        {
-          "rawSql": "SELECT run_at AS time, duration_seconds AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
-          "format": "time_series",
-          "refId": "B"
+          "refId": "A",
+          "rawSql": "SELECT run_at AS time, source AS metric, duration_seconds AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() ORDER BY run_at"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "s",
           "custom": {
-            "fillOpacity": 10,
-            "showPoints": "always",
-            "pointSize": 6
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "lineWidth": 1,
+            "showPoints": "never"
           }
         },
         "overrides": []
-      }
+      },
+      "options": {}
     },
     {
-      "title": "Errors per Run",
+      "title": "Errors by Day",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
-      "datasource": "MariaDB",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 14
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
       "targets": [
         {
-          "rawSql": "SELECT run_at AS time, error_count AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
           "format": "time_series",
-          "refId": "A"
-        },
-        {
-          "rawSql": "SELECT run_at AS time, error_count AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
-          "format": "time_series",
-          "refId": "B"
+          "refId": "A",
+          "rawSql": "SELECT DATE(run_at) AS time, source AS metric, SUM(error_count) AS value FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() GROUP BY DATE(run_at), source ORDER BY time"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "short",
-          "custom": {
-            "fillOpacity": 15,
-            "drawStyle": "bars",
-            "barAlignment": 0
+          "color": {
+            "mode": "thresholds"
           },
           "thresholds": {
             "mode": "absolute",
             "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
             ]
           },
-          "color": { "mode": "thresholds" }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Data Loaded (MB)",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
-      "datasource": "MariaDB",
-      "targets": [
-        {
-          "rawSql": "SELECT run_at AS time, estimated_bytes_loaded AS 'Housing' FROM pipeline_runs WHERE source = 'housing' ORDER BY run_at",
-          "format": "time_series",
-          "refId": "A"
-        },
-        {
-          "rawSql": "SELECT run_at AS time, estimated_bytes_loaded AS 'Labour' FROM pipeline_runs WHERE source = 'labour' ORDER BY run_at",
-          "format": "time_series",
-          "refId": "B"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decbytes",
           "custom": {
-            "fillOpacity": 10,
-            "showPoints": "always",
-            "pointSize": 6
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           }
         },
         "overrides": []
-      }
+      },
+      "options": {}
+    },
+    {
+      "title": "Recent Runs",
+      "type": "row",
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "collapsed": false,
+      "panels": []
     },
     {
       "title": "Latest Pipeline Runs",
       "type": "table",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
-      "datasource": "MariaDB",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 23
+      },
+      "datasource": {
+        "type": "mysql",
+        "uid": "metropolitan-mariadb"
+      },
       "targets": [
         {
-          "rawSql": "SELECT run_at AS 'Time', source AS 'Source', records_extracted AS 'Extracted', records_transformed AS 'Transformed', records_loaded AS 'Loaded', records_rejected AS 'Rejected', CONCAT(ROUND(bytes_downloaded / 1048576, 2), ' MB') AS 'Downloaded', CONCAT(ROUND(estimated_bytes_loaded / 1048576, 2), ' MB') AS 'Written', CONCAT(success_rate_pct, '%') AS 'Success Rate', CONCAT(duration_seconds, 's') AS 'Duration', error_count AS 'Errors' FROM pipeline_runs ORDER BY run_at DESC LIMIT 20",
           "format": "table",
-          "refId": "A"
+          "refId": "A",
+          "rawSql": "SELECT run_at AS 'Time', source AS 'Source', COALESCE(strategy, 'bulk') AS 'Strategy', records_extracted AS 'Extracted', records_loaded AS 'Loaded', records_rejected AS 'Rejected', ROUND(bytes_downloaded / 1048576, 2) AS 'Downloaded MB', ROUND(estimated_bytes_loaded / 1048576, 2) AS 'Written MB', success_rate_pct AS 'Success %', duration_seconds AS 'Duration s', error_count AS 'Errors' FROM pipeline_runs WHERE run_at BETWEEN UTC_TIMESTAMP() - INTERVAL 30 DAY AND UTC_TIMESTAMP() ORDER BY run_at DESC LIMIT 25"
         }
       ],
       "fieldConfig": {
         "defaults": {},
         "overrides": []
-      }
-    },
-    {
-      "title": "Total Records Loaded (All Time)",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 32 },
-      "datasource": "MariaDB",
-      "targets": [
-        {
-          "rawSql": "SELECT SUM(records_loaded) AS total FROM pipeline_runs",
-          "format": "table",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "steps": [
-              { "color": "blue", "value": null }
-            ]
-          }
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
         },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Total Data Downloaded",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 32 },
-      "datasource": "MariaDB",
-      "targets": [
-        {
-          "rawSql": "SELECT SUM(bytes_downloaded) AS total FROM pipeline_runs",
-          "format": "table",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "decbytes",
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "steps": [
-              { "color": "purple", "value": null }
-            ]
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Time"
           }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Avg Success Rate",
-      "type": "gauge",
-      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 32 },
-      "datasource": "MariaDB",
-      "targets": [
-        {
-          "rawSql": "SELECT AVG(success_rate_pct) AS avg_rate FROM pipeline_runs",
-          "format": "table",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent",
-          "min": 0,
-          "max": 100,
-          "thresholds": {
-            "steps": [
-              { "color": "red", "value": null },
-              { "color": "yellow", "value": 90 },
-              { "color": "green", "value": 99 }
-            ]
-          }
-        },
-        "overrides": []
-      }
-    },
-    {
-      "title": "Total Errors",
-      "type": "stat",
-      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 32 },
-      "datasource": "MariaDB",
-      "targets": [
-        {
-          "rawSql": "SELECT SUM(error_count) AS total FROM pipeline_runs",
-          "format": "table",
-          "refId": "A"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "color": { "mode": "thresholds" },
-          "thresholds": {
-            "steps": [
-              { "color": "green", "value": null },
-              { "color": "red", "value": 1 }
-            ]
-          }
-        },
-        "overrides": []
+        ]
       }
     }
   ],
   "schemaVersion": 39,
-  "tags": ["metropolitan", "ingester", "pipeline"],
-  "templating": { "list": [] },
-  "time": { "from": "now-30d", "to": "now" },
+  "tags": [
+    "metropolitan",
+    "ingester",
+    "pipeline"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-30d",
+    "to": "now"
+  },
+  "refresh": "1m",
+  "timepicker": {
+    "refresh_intervals": [
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h"
+    ],
+    "time_options": [
+      "24h",
+      "7d",
+      "30d",
+      "90d",
+      "6M",
+      "1y"
+    ]
+  },
   "title": "Ingester Pipeline",
   "uid": "metropolitan-ingester",
-  "version": 1
+  "version": 3
 }
