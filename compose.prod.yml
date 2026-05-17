@@ -81,6 +81,31 @@ services:
     networks:
       - backend-database
 
+  loki:
+    image: grafana/loki
+    command:
+      - '-config.file=/etc/loki/loki-config.yml'
+    volumes:
+      - ./observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      - backend-database
+
+  alloy:
+    image: grafana/alloy
+    command:
+      - run
+      - --storage.path=/var/lib/alloy/data
+      - /etc/alloy/config.alloy
+    volumes:
+      - ./observability/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy_data:/var/lib/alloy/data
+    depends_on:
+      - loki
+    networks:
+      - backend-database
+
   grafana:
     image: grafana/grafana:11.5.2
     environment:
@@ -95,6 +120,7 @@ services:
       - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
     depends_on:
       - prometheus
+      - loki
     networks:
       - backend-database
 
@@ -102,6 +128,8 @@ volumes:
   mariadb_data:
   grafana_data:
   prometheus_data:
+  loki_data:
+  alloy_data:
   caddy_data:
   caddy_config:
 
